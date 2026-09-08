@@ -20,8 +20,8 @@ export const PEGS = [
 export const SLOPES = [
   { x1: 480, y1: 372, x2: 160, y2: 505 },
   { x1: 480, y1: 372, x2: 800, y2: 505 },
-  { x1: 69, y1: 710, x2: 365, y2: 802 },
-  { x1: 891, y1: 710, x2: 595, y2: 802 },
+  { x1: 69, y1: 710, x2: 330, y2: 802 },
+  { x1: 891, y1: 710, x2: 630, y2: 802 },
   { x1: 69, y1: 920, x2: 622, y2: 1070 },
   { x1: 891, y1: 1170, x2: 300, y2: 1330 },
   { x1: 69, y1: 1470, x2: 285, y2: 1555 },
@@ -30,12 +30,12 @@ export const SLOPES = [
   { x1: 480, y1: 1860, x2: 730, y2: 1980 },
 ];
 export const BUMPERS = [
-  { x: 180, y: 627, radius: 37, travel: 35, period: 2.8 },
-  { x: 480, y: 724, radius: 39, travel: 90, period: 3.2 },
-  { x: 780, y: 627, radius: 37, travel: 35, period: 2.8 },
+  { x: 180, y: 627, radius: 30, travel: 24, period: 2.8 },
+  { x: 480, y: 845, radius: 26, travel: 50, period: 3.2 },
+  { x: 780, y: 627, radius: 30, travel: 24, period: 2.8 },
 ];
+export const CURRENT = { top: 900, bottom: 1430, drag: 0.042 };
 export const ROTORS = [
-  { x: 480, y: 839, length: 174, thickness: 20, direction: -1, blades: 3 },
   { x: 759, y: 1110, length: 146, thickness: 20, direction: 1, blades: 2 },
   { x: 480, y: 2150, length: 134, thickness: 19, direction: -1, blades: 2 },
 ];
@@ -81,7 +81,7 @@ export const RAILS = [
 ];
 export const SECTIONS = [
   { y: 176, label: '01 / РАЗВИЛКА', name: 'Развилка' },
-  { y: 571, label: '02 / ПИНБОЛ', name: 'Пинбол' },
+  { y: 571, label: '02 / МЯГКИЙ СЛАЛОМ', name: 'Мягкий слалом' },
   { y: 962, label: '03 / ТУРБО-КАСКАДЫ', name: 'Турбо-каскады' },
   { y: 1430, label: '04 / ВОЛНОВОЙ БАССЕЙН', name: 'Волновой бассейн' },
   { y: 1830, label: '05 / ПОСЛЕДНИЙ КАСКАД', name: 'Последний каскад' },

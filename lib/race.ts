@@ -11,6 +11,7 @@ import {
   SLOPES,
   RAILS,
   BUMPERS,
+  CURRENT,
   BOOSTS,
   GATE,
   POOL,
@@ -155,7 +156,7 @@ export class RaceSimulation {
         b.x + Math.sin(this.bumperPhases[i]) * b.travel,
         b.y,
         b.radius,
-        { isStatic: true, restitution: 1.05, friction: 0.01 },
+        { isStatic: true, restitution: 0.62, friction: 0.01 },
       ),
     );
     this.bumperHits = BUMPERS.map(() => -10);
@@ -344,7 +345,11 @@ export class RaceSimulation {
             this.boostedUntil[slot] = this.ticks + 20;
           }
         });
-      if (this.flushing) body.frictionAir = 0.012;
+      body.frictionAir = this.flushing
+        ? 0.012
+        : body.position.y > CURRENT.top && body.position.y < CURRENT.bottom
+          ? CURRENT.drag
+          : 0.009;
       if (body.speed > 20) Body.setSpeed(body, 20);
     });
     Engine.update(this.engine, STEP_MS);
@@ -360,8 +365,11 @@ export class RaceSimulation {
             this.ticks - this.bumperCooldowns[slot][i] > 14
           ) {
             Body.setVelocity(body, {
-              x: body.velocity.x + (dx / distance) * 2.7,
-              y: body.velocity.y + (dy / distance) * 2.7,
+              x: body.velocity.x + (dx / distance) * 1.1,
+              y:
+                Math.min(0, body.velocity.y) * 0.15 +
+                Math.max(0, body.velocity.y) +
+                Math.max(0, dy / distance) * 0.5,
             });
             this.bumperCooldowns[slot][i] = this.ticks;
             this.bumperHits[i] = this.ticks / 60;

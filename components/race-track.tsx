@@ -5,6 +5,7 @@ import {
   RAILS,
   SLOPES,
   BUMPERS,
+  CURRENT,
   BOOSTS,
   GATE,
   POOL,
@@ -51,7 +52,7 @@ export function RaceTrack({
       className="race-svg"
       viewBox={`0 ${camera} 960 ${overview ? HEIGHT : VIEW_HEIGHT}`}
       role="img"
-      aria-label="Трасса с развилкой, пинболом, турбо-каскадами, волновым бассейном и последним каскадом"
+      aria-label="Трасса с развилкой, мягким слаломом среди буёв, турбо-каскадами, волновым бассейном и последним каскадом"
       style={{ aspectRatio: '960/760' }}
     >
       <defs>
@@ -105,6 +106,14 @@ export function RaceTrack({
       </defs>
       <rect width="960" height={HEIGHT} fill="url(#water)" />
       <rect width="960" height={HEIGHT} fill="url(#pool-grid)" />
+      <rect
+        x="83"
+        y={CURRENT.top}
+        width="794"
+        height={CURRENT.bottom - CURRENT.top}
+        fill="#3b93bb"
+        opacity=".08"
+      />
       <path
         d={`M${WALL_X[0]} 0V${HEIGHT}M${WALL_X[1]} 0V${HEIGHT}`}
         stroke="#61bfdc"
@@ -319,19 +328,34 @@ export function RaceTrack({
                 fill="#458fac"
                 opacity=".4"
               />
+              <ellipse
+                cy={bumper.radius + 8}
+                rx={bumper.radius + 10}
+                ry="5"
+                fill="none"
+                stroke="#ecffff"
+                strokeWidth="3"
+                opacity=".7"
+              />
               <circle
                 r={bumper.radius}
-                fill={impact > 0 ? '#ffc777' : '#f3799b'}
-                stroke="#ffe7ec"
+                fill={impact > 0 ? '#ffe09e' : '#58bba9'}
+                stroke="#e0fff2"
                 strokeWidth="5"
               />
               <circle
                 r={bumper.radius - 11}
-                fill="#fff1e4"
-                stroke="#d75b84"
+                fill="#edfff5"
+                stroke="#369e94"
                 strokeWidth="3"
               />
-              <path d="M-5 -14L8 -14L0 -2H10L-7 16L-2 3H-11Z" fill="#e9698e" />
+              <path
+                d="M-11 -3q5 -7 11 0t11 0M-11 6q5 -7 11 0t11 0"
+                fill="none"
+                stroke="#369e94"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
             </g>
           );
         })}
