@@ -1,15 +1,18 @@
 import Matter from 'matter-js';
 import { seededRandom, shuffled } from './random.ts';
 import {
-  BOWLS,
+  STAGES,
   PIPES,
   PADDLES,
-  PEGS,
+  ISLANDS,
+  RAILS,
+  paddlePose,
   FINISH_DISTANCE,
   RADIUS,
   pipePoint,
   startPosition,
 } from './track.ts';
+import { stageWalls, railBody, containBody } from './stage-physics.ts';
 const { Engine, Bodies, Body, Composite } = Matter;
 export const STEP_MS = 1000 / 60,
   COUNTDOWN_SECONDS = 3,
@@ -35,7 +38,7 @@ export type Finish = {
 export type Frame = {
   elapsed: number;
   ducks: DuckState[];
-  rotorAngles: number[];
+  paddles: { x: number; y: number; angle: number }[];
   flushing: boolean;
   result: Finish | null;
 };
@@ -81,7 +84,7 @@ export class RaceSimulation {
   private engine: Matter.Engine;
   private bodies: Matter.Body[];
   private rotors: Matter.Body[];
-  private speeds: number[];
+  private phases: number[];
   private removable: Matter.Body[];
   private tieRanks: number[];
   private stages: number[];
@@ -99,43 +102,32 @@ export class RaceSimulation {
       velocityIterations: 8,
     });
     this.engine.gravity.y = 0;
-    const walls = BOWLS.flatMap((b) =>
-      Array.from({ length: 64 }, (_, i) => {
-        const a = (i * Math.PI * 2) / 64,
-          next = ((i + 1) * Math.PI * 2) / 64,
-          mid = (a + next) / 2;
-        return Bodies.rectangle(
-          b.x + Math.cos(mid) * b.radius,
-          b.y + Math.sin(mid) * b.radius,
-          2 * b.radius * Math.sin(Math.PI / 64) + 3,
-          14,
-          {
-            isStatic: true,
-            angle: mid + Math.PI / 2,
-            restitution: 0.45,
-            friction: 0.001,
-          },
-        );
-      }),
-    );
-    this.speeds = PADDLES.map((p) => p.direction * (0.4 + random() * 0.25));
-    this.rotors = PADDLES.map((p) =>
-      Bodies.rectangle(p.x, p.y, p.length, p.width, {
+    const walls = STAGES.flatMap(stageWalls);
+    this.phases = PADDLES.map(() => random() * Math.PI * 2);
+    this.rotors = PADDLES.map((p, i) => {
+      const pose = paddlePose(p, 0, this.phases[i]);
+      return Bodies.rectangle(pose.x, pose.y, p.length, p.width, {
         isStatic: true,
-        angle: random() * Math.PI * 2,
+        angle: pose.angle,
         chamfer: { radius: 6 },
         restitution: 0.3,
         friction: 0.001,
-      }),
-    );
-    const pegs = PEGS.map((p) =>
-      Bodies.circle(p.x, p.y, p.radius, {
+      });
+    });
+    const islands = ISLANDS.map((p) =>
+      Bodies.rectangle(p.x, p.y, p.length, p.width, {
         isStatic: true,
+        angle: p.angle,
+        chamfer: { radius: p.width / 2 - 1 },
         restitution: 0.45,
         friction: 0.001,
       }),
     );
-    this.removable = [...this.rotors, ...pegs];
+    this.removable = [
+      ...this.rotors,
+      ...islands,
+      ...RAILS.map((r) => railBody(r.a, r.b, r.width)),
+    ];
     this.stages = Array(count).fill(0);
     this.transits = Array(count).fill(null);
     this.bodies = Array.from({ length: count }, (_, slot) => {
@@ -171,7 +163,7 @@ export class RaceSimulation {
   }
   private progress(slot: number) {
     const stage = this.stages[slot];
-    if (stage >= BOWLS.length) return FINISH_DISTANCE;
+    if (stage >= STAGES.length) return FINISH_DISTANCE;
     const transit = this.transits[slot];
     if (transit)
       return (
@@ -179,16 +171,15 @@ export class RaceSimulation {
         700 +
         (300 * Math.max(0, transit.distance)) / PIPES[stage].at(-1)!.s
       );
-    const b = BOWLS[stage],
-      p = this.bodies[slot].position,
-      r = Math.hypot(p.x - b.x, p.y - b.y);
-    return (
-      stage * 1000 +
-      Math.max(
-        0,
-        Math.min(699, (700 * (b.radius - r)) / (b.radius - b.drain + RADIUS)),
-      )
-    );
+    const stageData = STAGES[stage],
+      p = this.bodies[slot].position;
+    const fraction =
+      stageData.kind === 'bowl'
+        ? (stageData.radius -
+            Math.hypot(p.x - stageData.x, p.y - stageData.y)) /
+          (stageData.radius - stageData.drain + RADIUS)
+        : (p.y - stageData.top) / (stageData.exit.y - stageData.top);
+    return stage * 1000 + Math.max(0, Math.min(699, 700 * fraction));
   }
   snapshot(): Frame {
     return {
@@ -205,7 +196,11 @@ export class RaceSimulation {
         inTube: this.transits[slot] !== null,
         hiddenInDrain: (this.transits[slot]?.distance ?? 0) < 0,
       })),
-      rotorAngles: this.rotors.map((r) => r.angle),
+      paddles: this.rotors.map((r) => ({
+        x: r.position.x,
+        y: r.position.y,
+        angle: r.angle,
+      })),
       flushing: this.flushing,
       result: this.result,
     };
@@ -220,57 +215,58 @@ export class RaceSimulation {
     }
     if (!this.flushing)
       this.rotors.forEach((r, i) => {
-        Body.setAngle(r, r.angle + this.speeds[i] / 60);
-        Body.setAngularVelocity(r, this.speeds[i] / 60);
+        const pose = paddlePose(PADDLES[i], this.ticks / 60, this.phases[i]);
+        const velocity = { x: pose.x - r.position.x, y: pose.y - r.position.y },
+          angularVelocity = pose.angle - r.angle;
+        Body.setPosition(r, pose);
+        Body.setAngle(r, pose.angle);
+        Body.setVelocity(r, velocity);
+        Body.setAngularVelocity(r, angularVelocity);
       });
     this.bodies.forEach((body, slot) => {
       if (
         body.isStatic ||
         this.transits[slot] ||
-        this.stages[slot] >= BOWLS.length
+        this.stages[slot] >= STAGES.length
       )
         return;
-      const b = BOWLS[this.stages[slot]],
-        k = b.strength * (this.flushing ? 2 : 1);
-      body.frictionAir = this.flushing ? 0.05 : b.friction;
-      // Gravity on a concave bowl: a smooth inward slope. Momentum supplies the orbit.
-      Body.applyForce(body, body.position, {
-        x: (b.x - body.position.x) * k * body.mass,
-        y: (b.y - body.position.y) * k * body.mass,
-      });
+      const stage = STAGES[this.stages[slot]],
+        rescue = this.flushing ? 2 : 1;
+      body.frictionAir = this.flushing ? 0.05 : stage.friction;
+      // Bowl slope is radial; chutes slope downhill. Neither depends on rank or race time.
+      Body.applyForce(
+        body,
+        body.position,
+        stage.kind === 'bowl'
+          ? {
+              x:
+                (stage.x - body.position.x) *
+                stage.strength *
+                rescue *
+                body.mass,
+              y:
+                (stage.y - body.position.y) *
+                stage.strength *
+                rescue *
+                body.mass,
+            }
+          : { x: 0, y: stage.gravity * rescue * body.mass },
+      );
     });
     Engine.update(this.engine, STEP_MS);
     this.bodies.forEach((body, slot) => {
       if (
         this.transits[slot] ||
-        this.stages[slot] >= BOWLS.length ||
+        this.stages[slot] >= STAGES.length ||
         body.isStatic
       )
         return;
-      const b = BOWLS[this.stages[slot]],
-        dx = body.position.x - b.x,
-        dy = body.position.y - b.y,
-        r = Math.hypot(dx, dy);
-      if (r > b.radius - 7 - RADIUS + 1) {
-        const nx = dx / r,
-          ny = dy / r,
-          normal = body.velocity.x * nx + body.velocity.y * ny,
-          vx = body.velocity.x,
-          vy = body.velocity.y;
-        Body.setPosition(body, {
-          x: b.x + nx * (b.radius - 7 - RADIUS),
-          y: b.y + ny * (b.radius - 7 - RADIUS),
-        });
-        if (normal > 0)
-          Body.setVelocity(body, {
-            x: vx - normal * nx * 1.45,
-            y: vy - normal * ny * 1.45,
-          });
-      }
+      const b = STAGES[this.stages[slot]];
+      containBody(body, b);
       const entry = drainCrossing(
         before[slot],
         body.position,
-        b,
+        b.exit,
         b.drain - RADIUS,
       );
       if (entry !== null) {
@@ -281,11 +277,11 @@ export class RaceSimulation {
         };
         Body.setStatic(body, true);
         body.collisionFilter.mask = 0;
-        Body.setPosition(body, { x: b.x, y: b.y });
+        Body.setPosition(body, b.exit);
       }
     });
     // The enclosed connecting tubes constrain movement along a rail. Preserve order and spacing.
-    for (let stage = 0; stage < BOWLS.length; stage++) {
+    for (let stage = 0; stage < STAGES.length; stage++) {
       const slots = this.transits
         .map((t, slot) => ({ t, slot }))
         .filter((v) => v.t && this.stages[v.slot] === stage)
@@ -310,7 +306,7 @@ export class RaceSimulation {
         if (t!.distance >= length) {
           this.stages[slot]++;
           this.transits[slot] = null;
-          if (this.stages[slot] < BOWLS.length) {
+          if (this.stages[slot] < STAGES.length) {
             Body.setStatic(body, false);
             body.collisionFilter.mask = 0xffffffff;
             Body.setVelocity(body, {

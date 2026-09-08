@@ -1,9 +1,12 @@
 'use client';
 import {
   BOWLS,
+  STAGES,
   PIPES,
   PADDLES,
-  PEGS,
+  ISLANDS,
+  RAILS,
+  paddlePose,
   HEIGHT,
   VIEW_HEIGHT,
   HUES,
@@ -32,10 +35,12 @@ export function RaceTrack({
   const leader = frame
     ? [...frame.ducks].sort((a, b) => b.progress - a.progress)[0]
     : null;
+  const stage = STAGES[Math.min(leader?.stage ?? 0, STAGES.length - 1)];
   const focus =
-    leader?.inTube || (leader?.stage ?? 0) >= BOWLS.length
-      ? leader!.y
-      : BOWLS[Math.min(leader?.stage ?? 0, BOWLS.length - 1)].y;
+    leader &&
+    (leader.inTube || leader.stage >= STAGES.length || stage.kind !== 'bowl')
+      ? leader.y
+      : stage.y;
   const camera = overview
     ? 0
     : Math.max(0, Math.min(HEIGHT - VIEW_HEIGHT, focus - 390));
@@ -117,7 +122,7 @@ export function RaceTrack({
       className="race-svg"
       viewBox={`0 ${camera} 960 ${overview ? HEIGHT : VIEW_HEIGHT}`}
       role="img"
-      aria-label="Гонка уток по четырём чашам-воронкам с наклонными стенками, открытыми выходами и соединительными желобами"
+      aria-label="Гонка уток: круговой вираж, развилка вокруг острова, наклонный каскад с маятниками и финальная чаша"
       style={{ aspectRatio: '960/850' }}
     >
       <defs>
@@ -134,6 +139,14 @@ export function RaceTrack({
           <stop offset=".55" stopColor="#9bdfed" />
           <stop offset="1" stopColor="#c5f0f6" />
         </radialGradient>
+        <linearGradient id="fork-water" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#bcf1dd" />
+          <stop offset="1" stopColor="#75c9bf" />
+        </linearGradient>
+        <linearGradient id="cascade-water" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#bbecf9" />
+          <stop offset="1" stopColor="#7cc1e0" />
+        </linearGradient>
         <radialGradient id="drain">
           <stop stopColor="#15485f" />
           <stop offset="1" stopColor="#2a7d9b" />
@@ -148,7 +161,7 @@ export function RaceTrack({
           <path d="M0 0H14V14H0ZM14 14H28V28H14Z" fill="#254b5e" />
         </pattern>
         <mask
-          id="below-bowls"
+          id="below-track"
           maskUnits="userSpaceOnUse"
           x="0"
           y="0"
@@ -156,10 +169,19 @@ export function RaceTrack({
           height={HEIGHT}
         >
           <rect width="960" height={HEIGHT} fill="white" />
-          {BOWLS.map((b, i) => (
+          {STAGES.map((b, i) => (
             <g key={i}>
-              <circle cx={b.x} cy={b.y} r={b.radius + 8} fill="black" />
-              <circle cx={b.x} cy={b.y} r={b.drain} fill="white" />
+              {b.kind === 'bowl' ? (
+                <circle cx={b.x} cy={b.y} r={b.radius + 8} fill="black" />
+              ) : (
+                <path
+                  d={path(b.outline) + 'Z'}
+                  fill="black"
+                  stroke="black"
+                  strokeWidth="16"
+                />
+              )}
+              <circle cx={b.exit.x} cy={b.exit.y} r={b.drain} fill="white" />
             </g>
           ))}
         </mask>
@@ -265,55 +287,199 @@ export function RaceTrack({
           </text>
         </g>
       ))}
+      {STAGES.filter((s) => s.kind !== 'bowl').map((s) => (
+        <g key={s.label}>
+          <text
+            x={s.x}
+            y={s.top - 38}
+            textAnchor="middle"
+            className="board-label"
+          >
+            {s.label}
+          </text>
+          <path
+            d={path(s.outline) + 'Z'}
+            transform="translate(0 10)"
+            fill="#7bb7c5"
+            stroke="#7bb7c5"
+            strokeWidth="18"
+            strokeLinejoin="round"
+          />
+          <path
+            d={path(s.outline) + 'Z'}
+            fill={`url(#${s.kind}-water)`}
+            stroke="#f6ffff"
+            strokeWidth="14"
+            strokeLinejoin="round"
+          />
+          {s.kind === 'fork' ? (
+            <>
+              <path
+                d="M455 945 Q330 1060 360 1190 Q390 1290 475 1330 M625 945 Q750 1060 720 1190 Q690 1290 605 1330"
+                fill="none"
+                stroke="#edfff3"
+                strokeWidth="3"
+                strokeDasharray="14 18"
+                opacity=".65"
+              />
+              <path
+                d="M345 1190l17 20 13-24 M707 1190l13 24 17-20"
+                fill="none"
+                stroke="#edfff3"
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
+            </>
+          ) : (
+            <>
+              <path
+                d="M240 1720L580 1856 M600 1925L220 2120 M265 2200L410 2270"
+                fill="none"
+                stroke="#eafbff"
+                strokeWidth="3"
+                strokeDasharray="14 18"
+                opacity=".65"
+              />
+              <path
+                d="M560 1835l22 22-28 7 M233 2100l-17 25 30 1"
+                fill="none"
+                stroke="#eafbff"
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
+            </>
+          )}
+          <circle
+            cx={s.exit.x}
+            cy={s.exit.y + 4}
+            r={s.drain + 3}
+            fill="#4691ac"
+          />
+          <circle
+            cx={s.exit.x}
+            cy={s.exit.y}
+            r={s.drain}
+            fill="url(#drain)"
+            stroke="#daf7fa"
+            strokeWidth="4"
+          />
+          <path
+            d={`M${s.exit.x - 10} ${s.exit.y - 5}l10 10 10-10`}
+            fill="none"
+            stroke="#9edbeb"
+            strokeWidth="3"
+            opacity=".6"
+          />
+        </g>
+      ))}
       <g opacity={ghost}>
-        {PEGS.map((p, i) => (
-          <g key={i}>
-            <circle
-              cx={p.x}
-              cy={p.y + 5}
-              r={p.radius + 2}
-              fill="#398ca6"
-              opacity=".35"
-            />
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={p.radius}
-              fill="#ffbc91"
-              stroke="#fff0d6"
-              strokeWidth="4"
-            />
-            <circle cx={p.x - 5} cy={p.y - 5} r="5" fill="#ffe6c3" />
-          </g>
-        ))}
-        {PADDLES.map((p, i) => (
+        {ISLANDS.map((p, i) => (
           <g
             key={i}
-            transform={`translate(${p.x} ${p.y}) rotate(${((frame?.rotorAngles[i] ?? 0.5) * 180) / Math.PI})`}
+            transform={`translate(${p.x} ${p.y}) rotate(${(p.angle * 180) / Math.PI})`}
           >
             <rect
-              x={-p.length / 2}
-              y={-p.width / 2 + 5}
+              x={-p.length / 2 + 5}
+              y={-p.width / 2}
               width={p.length}
               height={p.width}
-              rx="6"
-              fill="#367c9d"
-              opacity=".3"
+              rx={p.width / 2}
+              fill="#3e9995"
+              opacity=".4"
             />
             <rect
               x={-p.length / 2}
               y={-p.width / 2}
               width={p.length}
               height={p.width}
-              rx="6"
-              fill="#579bc3"
-              stroke="#e1f6ff"
-              strokeWidth="3"
+              rx={p.width / 2}
+              fill="#f3d6a1"
+              stroke="#fff2d7"
+              strokeWidth="5"
             />
-            <circle r="11" fill="#f5ffff" />
-            <circle r="5" fill="#ffa875" />
+            <path
+              d="M-65-28H40"
+              stroke="#ffefce"
+              strokeWidth="7"
+              strokeLinecap="round"
+            />
+            <circle
+              cx="20"
+              cy="7"
+              r="19"
+              fill="#9bc69a"
+              stroke="#d5e8b1"
+              strokeWidth="4"
+            />
+            <circle cx="-22" cy="16" r="12" fill="#9bc69a" />
           </g>
         ))}
+        {RAILS.map((r, i) => (
+          <g key={i}>
+            <path
+              d={path([r.a, r.b])}
+              transform="translate(0 5)"
+              fill="none"
+              stroke="#438bab"
+              strokeWidth={r.width + 3}
+              strokeLinecap="round"
+              opacity=".4"
+            />
+            <path
+              d={path([r.a, r.b])}
+              fill="none"
+              stroke="#fff1d6"
+              strokeWidth={r.width + 2}
+              strokeLinecap="round"
+            />
+            <path
+              d={path([r.a, r.b])}
+              fill="none"
+              stroke="#eeb688"
+              strokeWidth={r.width - 6}
+              strokeLinecap="round"
+            />
+          </g>
+        ))}
+        {PADDLES.map((p, i) => {
+          const pose = frame?.paddles[i] ?? paddlePose(p, 0, 0.7);
+          return (
+            <g key={i}>
+              <g
+                transform={`translate(${pose.x} ${pose.y}) rotate(${(pose.angle * 180) / Math.PI})`}
+              >
+                <rect
+                  x={-p.length / 2}
+                  y={-p.width / 2 + 5}
+                  width={p.length}
+                  height={p.width}
+                  rx="6"
+                  fill="#367c9d"
+                  opacity=".3"
+                />
+                <rect
+                  x={-p.length / 2}
+                  y={-p.width / 2}
+                  width={p.length}
+                  height={p.width}
+                  rx="6"
+                  fill="#658bbb"
+                  stroke="#e1f6ff"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx={p.length / 2 - 8}
+                  r="10"
+                  fill="#ffa875"
+                  stroke="#fff0d6"
+                  strokeWidth="3"
+                />
+              </g>
+              <circle cx={p.x} cy={p.y} r="11" fill="#f5ffff" />
+              <circle cx={p.x} cy={p.y} r="5" fill="#658bbb" />
+            </g>
+          );
+        })}
       </g>
       <path d="M719 3300H801" stroke="url(#finish)" strokeWidth="28" />
       <text x="760" y="3380" textAnchor="middle" className="board-label">
@@ -322,7 +488,7 @@ export function RaceTrack({
       {ducks
         .filter((_, slot) => !frame?.ducks[slot]?.inTube)
         .map((duck) => drawDuck(duck, ducks.indexOf(duck)))}
-      <g mask="url(#below-bowls)">
+      <g mask="url(#below-track)">
         {ducks
           .filter((_, slot) => frame?.ducks[slot]?.inTube)
           .map((duck) => drawDuck(duck, ducks.indexOf(duck)))}
