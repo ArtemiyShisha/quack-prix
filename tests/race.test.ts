@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { BOWLS } from '../lib/track.ts';
 import {
   RaceSimulation,
   firstCrossing,
@@ -87,8 +88,8 @@ test('a completely jammed race triggers the shared flush and explicit distance f
   };
   internals.bodies.forEach((body, i) => {
     Matter.Body.setPosition(body, {
-      x: 180 + i * 140,
-      y: 150 + (i === 2 ? 40 : 0),
+      x: BOWLS[0].x + 100 + (i === 2 ? -30 : 0),
+      y: BOWLS[0].y,
     });
     Matter.Body.setStatic(body, true);
   });
@@ -109,7 +110,7 @@ test('a completely jammed race triggers the shared flush and explicit distance f
   const tie = new RaceSimulation(4, 118);
   const tied = tie as unknown as { bodies: Matter.Body[]; tieRanks: number[] };
   tied.bodies.forEach((body, i) => {
-    Matter.Body.setPosition(body, { x: 180 + i * 140, y: 150 });
+    Matter.Body.setPosition(body, { x: BOWLS[0].x + 100, y: BOWLS[0].y });
     Matter.Body.setStatic(body, true);
   });
   let equal = tie.snapshot();

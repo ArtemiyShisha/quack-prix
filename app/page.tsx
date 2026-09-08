@@ -23,7 +23,7 @@ import {
   STORAGE_KEY,
   type Member,
 } from '@/lib/roster';
-import { HUES, FINISH_Y, POOL } from '@/lib/track';
+import { HUES, FINISH_DISTANCE } from '@/lib/track';
 import { FLUSH_SECONDS, MAX_SECONDS } from '@/lib/race';
 import { prepareSound, quack } from '@/lib/sound';
 import { useGameTools } from '@/hooks/use-game-tools';
@@ -46,13 +46,15 @@ export default function Home() {
         100,
         Math.max(
           0,
-          ((Math.max(...frame.ducks.map((d) => d.y)) - 94) / (FINISH_Y - 94)) *
+          (Math.max(...frame.ducks.map((d) => d.progress)) / FINISH_DISTANCE) *
             100,
         ),
       )
     : 0;
   const leader =
-    frame && setup ? [...frame.ducks].sort((a, b) => b.y - a.y)[0] : null;
+    frame && setup
+      ? [...frame.ducks].sort((a, b) => b.progress - a.progress)[0]
+      : null;
   const leaderMember = leader && setup ? setup.members[leader.slot] : null;
   useEffect(() => {
     try {
@@ -121,17 +123,9 @@ export default function Home() {
       : countdown
         ? `На старт… ${countdown}`
         : frame?.flushing
-          ? 'Большой смыв! Все заслонки открыты'
+          ? 'Большой смыв! Утки спешат к выходу'
           : running
-            ? frame && frame.elapsed - frame.chaos.at < 0.85
-              ? frame.chaos.title
-              : leader &&
-                  leader.y > POOL.triggerY &&
-                  leader.y < POOL.bottom + 50
-                ? 'Водоворот даёт жару!'
-                : leader?.boosted
-                  ? `${leaderMember?.name ?? 'Утка'} ловит турбо!`
-                  : `${leaderMember?.name ?? 'Утка'} вырывается вперёд`
+            ? `${leaderMember?.name ?? 'Утка'} впереди — гонка продолжается`
             : 'Утки на старте';
   const elapsed = frame?.elapsed ?? 0;
   return (
@@ -219,15 +213,16 @@ export default function Home() {
             </summary>
             <p>
               Перед каждым заездом имена случайно распределяются по стартовым
-              местам. Во время гонки каждые одну-две секунды случаются новые
-              случайные залпы: одних уток подбрасывает, других разгоняет.
-              Вертушки меняют направление, водоворот крутит поток. Все утки
-              получают толчки по одинаковым случайным правилам. Они одинаковы по
-              весу и размеру — кто первым пересечёт финиш, тот и ведущий.
+              местам. Наклонные чаши закручивают уток вокруг открытого выхода.
+              Скорость входа и столкновения меняют орбиту: можно пройти по
+              внутренней траектории или сделать ещё круг. Лопасть и островки
+              влияют только при контакте. Стартовые положения и фаза лопасти
+              каждый раз новые. Все утки одинаковы по весу и размеру — кто
+              первым пересечёт финиш, тот и ведущий.
             </p>
             <p>
               Повторная победа возможна. Если заезд затянулся, на{' '}
-              {FLUSH_SECONDS}-й секунде открывается «Большой смыв». Если к{' '}
+              {FLUSH_SECONDS}-й секунде включается «Большой смыв». Если к{' '}
               {MAX_SECONDS}-й секунде никто не финишировал, ведущим станет тот,
               кто спустился дальше.
             </p>
@@ -326,7 +321,7 @@ export default function Home() {
           </div>
           <div className="race-footer">
             <span>
-              <Waves size={17} /> Гейзеры → пинбол → турбо → вихрь → финиш
+              <Waves size={17} /> Четыре чаши. Разные орбиты. Один финиш.
             </span>
             <span>Около 30 секунд, как поплывёт</span>
           </div>

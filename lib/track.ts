@@ -1,90 +1,136 @@
-export const WIDTH = 960;
-export const WALL_X = [56, 904];
-export const WALL_THICKNESS = 26;
-export const HEIGHT = 2400;
-export const VIEW_HEIGHT = 760;
-export const RADIUS = 23;
-export const FINISH_Y = 2316;
+export const WIDTH = 960,
+  HEIGHT = 3440,
+  VIEW_HEIGHT = 850,
+  RADIUS = 22;
+export const FINISH_DISTANCE = 4000;
+export const BOWLS = [
+  {
+    x: 420,
+    y: 420,
+    radius: 225,
+    drain: 56,
+    strength: 0.000006,
+    friction: 0.005,
+    label: '01 / БОЛЬШОЙ ВИРАЖ',
+  },
+  {
+    x: 540,
+    y: 1170,
+    radius: 235,
+    drain: 56,
+    strength: 0.0000057,
+    friction: 0.005,
+    label: '02 / ДВОЙНАЯ СПИРАЛЬ',
+  },
+  {
+    x: 420,
+    y: 1920,
+    radius: 225,
+    drain: 56,
+    strength: 0.0000063,
+    friction: 0.005,
+    label: '03 / МЕЖДУ ОСТРОВКАМИ',
+  },
+  {
+    x: 540,
+    y: 2670,
+    radius: 230,
+    drain: 56,
+    strength: 0.0000058,
+    friction: 0.005,
+    label: '04 / ПОСЛЕДНЯЯ ЧАША',
+  },
+];
+export type Point = { x: number; y: number };
+function bezier(a: Point, b: Point, c: Point, d: Point) {
+  return Array.from({ length: 61 }, (_, i) => {
+    const t = i / 60,
+      u = 1 - t;
+    return {
+      x:
+        u * u * u * a.x +
+        3 * u * u * t * b.x +
+        3 * u * t * t * c.x +
+        t * t * t * d.x,
+      y:
+        u * u * u * a.y +
+        3 * u * u * t * b.y +
+        3 * u * t * t * c.y +
+        t * t * t * d.y,
+    };
+  });
+}
+const controls = [
+  [
+    { x: 420, y: 420 },
+    { x: 420, y: 830 },
+    { x: 747, y: 680 },
+    { x: 747, y: 1170 },
+  ],
+  [
+    { x: 540, y: 1170 },
+    { x: 540, y: 1580 },
+    { x: 223, y: 1430 },
+    { x: 223, y: 1920 },
+  ],
+  [
+    { x: 420, y: 1920 },
+    { x: 420, y: 2330 },
+    { x: 742, y: 2180 },
+    { x: 742, y: 2670 },
+  ],
+  [
+    { x: 540, y: 2670 },
+    { x: 540, y: 3020 },
+    { x: 760, y: 3020 },
+    { x: 760, y: 3300 },
+  ],
+];
+export const PIPES = controls.map((control) => {
+  const points = bezier(control[0], control[1], control[2], control[3]);
+  let s = 0;
+  return points.map((p, i) => {
+    if (i) s += Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y);
+    return { ...p, s };
+  });
+});
+export function pipePoint(index: number, s: number) {
+  const points = PIPES[index];
+  s = Math.max(0, Math.min(points.at(-1)!.s, s));
+  const i = Math.max(
+      1,
+      points.findIndex((p) => p.s >= s),
+    ),
+    a = points[i - 1],
+    b = points[i];
+  const t = (s - a.s) / (b.s - a.s),
+    length = Math.hypot(b.x - a.x, b.y - a.y);
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    tx: (b.x - a.x) / length,
+    ty: (b.y - a.y) / length,
+  };
+}
+export function startPosition(slot: number, count: number) {
+  const columns = Math.min(4, count),
+    column = slot % columns,
+    row = Math.floor(slot / columns);
+  const angle = -2.85 + (column - (columns - 1) / 2) * 0.3,
+    radius = 195 - row * 51,
+    b = BOWLS[0];
+  return {
+    x: b.x + Math.cos(angle) * radius,
+    y: b.y + Math.sin(angle) * radius,
+    angle,
+  };
+}
+export const PADDLES = [
+  { stage: 1, x: 615, y: 1170, length: 92, width: 14, direction: -1 },
+];
 export const PEGS = [
-  ...Array.from({ length: 6 }, (_, i) => ({
-    x: 145 + i * 134,
-    y: 215,
-    radius: 16,
-  })),
-  ...Array.from({ length: 5 }, (_, i) => ({
-    x: 212 + i * 134,
-    y: 294,
-    radius: 16,
-  })),
-];
-// The first two ramps form a fork. Their shared apex blocks a straight fall.
-export const SLOPES = [
-  { x1: 480, y1: 372, x2: 160, y2: 505 },
-  { x1: 480, y1: 372, x2: 800, y2: 505 },
-  { x1: 69, y1: 710, x2: 330, y2: 802 },
-  { x1: 891, y1: 710, x2: 630, y2: 802 },
-  { x1: 69, y1: 920, x2: 622, y2: 1070 },
-  { x1: 891, y1: 1170, x2: 300, y2: 1330 },
-  { x1: 69, y1: 1470, x2: 285, y2: 1555 },
-  { x1: 891, y1: 1470, x2: 675, y2: 1555 },
-  { x1: 480, y1: 1860, x2: 230, y2: 1980 },
-  { x1: 480, y1: 1860, x2: 730, y2: 1980 },
-];
-export const BUMPERS = [
-  { x: 180, y: 627, radius: 30, travel: 24, period: 2.8 },
-  { x: 480, y: 845, radius: 26, travel: 50, period: 3.2 },
-  { x: 780, y: 627, radius: 30, travel: 24, period: 2.8 },
-  { x: 215, y: 1600, radius: 36, travel: 45, period: 1.9 },
-  { x: 745, y: 1600, radius: 36, travel: 45, period: 2.1 },
-];
-export const ROTORS = [
-  { x: 759, y: 1110, length: 146, thickness: 20, direction: 1, blades: 2 },
-  { x: 480, y: 2150, length: 134, thickness: 19, direction: -1, blades: 2 },
-];
-export const BOOSTS = [
-  {
-    x: 465,
-    y: 992,
-    length: 170,
-    width: 55,
-    angle: Math.atan2(150, 553),
-    force: 0.00042,
-  },
-  {
-    x: 530,
-    y: 1233,
-    length: 170,
-    width: 55,
-    angle: Math.atan2(160, -591),
-    force: 0.00042,
-  },
-];
-export const GATE = {
-  y: 1740,
-  centres: [190, 770],
-  angles: [0.1, -0.1],
-  width: 610,
-  thickness: 24,
-  travel: 210,
-};
-export const POOL = {
-  triggerY: 1430,
-  top: 1490,
-  bottom: 1765,
-  x: 480,
-  y: 1620,
-  period: 2.2,
-};
-export const RAILS = [
-  { x1: 69, y1: 2070, x2: 370, y2: 2230 },
-  { x1: 891, y1: 2070, x2: 590, y2: 2230 },
-];
-export const SECTIONS = [
-  { y: 176, label: '01 / РАЗВИЛКА', name: 'Развилка' },
-  { y: 571, label: '02 / КРЯКО-ПИНБОЛ', name: 'Кряко-пинбол' },
-  { y: 962, label: '03 / ТУРБО-КАСКАДЫ', name: 'Турбо-каскады' },
-  { y: 1430, label: '04 / БЕШЕНЫЙ ВОДОВОРОТ', name: 'Бешеный водоворот' },
-  { y: 1830, label: '05 / ПОСЛЕДНИЙ КАСКАД', name: 'Последний каскад' },
+  { stage: 2, x: 350, y: 1830, radius: 19 },
+  { stage: 2, x: 505, y: 1990, radius: 19 },
 ];
 export const HUES = [0, 115, 285, 170, 325, 58, 220, 35];
 export const COLOURS = [
@@ -97,6 +143,3 @@ export const COLOURS = [
   '#9480dd',
   '#a99345',
 ];
-export function startX(slot: number, count: number) {
-  return 480 + (slot - (count - 1) / 2) * 90;
-}

@@ -1,28 +1,20 @@
 import Matter from 'matter-js';
 import { seededRandom, shuffled } from './random.ts';
-import { wavePoolState, type PoolState } from './wave-pool.ts';
-import { ChaosClock, type ChaosState, type Kick } from './chaos.ts';
 import {
-  RADIUS,
-  FINISH_Y,
-  HEIGHT,
-  WALL_X,
-  WALL_THICKNESS,
+  BOWLS,
+  PIPES,
+  PADDLES,
   PEGS,
-  ROTORS,
-  SLOPES,
-  RAILS,
-  BUMPERS,
-  BOOSTS,
-  GATE,
-  POOL,
-  startX,
+  FINISH_DISTANCE,
+  RADIUS,
+  pipePoint,
+  startPosition,
 } from './track.ts';
 const { Engine, Bodies, Body, Composite } = Matter;
-export const STEP_MS = 1000 / 60;
-export const COUNTDOWN_SECONDS = 3;
-export const FLUSH_SECONDS = 50;
-export const MAX_SECONDS = 60;
+export const STEP_MS = 1000 / 60,
+  COUNTDOWN_SECONDS = 3,
+  FLUSH_SECONDS = 50,
+  MAX_SECONDS = 60;
 export type DuckState = {
   slot: number;
   x: number;
@@ -30,8 +22,10 @@ export type DuckState = {
   angle: number;
   vx: number;
   vy: number;
-  boosted: boolean;
-  kick: Kick | null;
+  progress: number;
+  stage: number;
+  inTube: boolean;
+  hiddenInDrain: boolean;
 };
 export type Finish = {
   slot: number;
@@ -42,11 +36,6 @@ export type Frame = {
   elapsed: number;
   ducks: DuckState[];
   rotorAngles: number[];
-  bumpers: { x: number; y: number; hitAt: number }[];
-  gates: number[];
-  boostActive: boolean[];
-  pool: PoolState;
-  chaos: ChaosState;
   flushing: boolean;
   result: Finish | null;
 };
@@ -68,151 +57,106 @@ export function firstCrossing(
   );
   return crossings[0]?.slot ?? null;
 }
-function railBody(rail: {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}): Matter.Body {
-  const dx = rail.x2 - rail.x1,
-    dy = rail.y2 - rail.y1;
-  return Bodies.rectangle(
-    (rail.x1 + rail.x2) / 2,
-    (rail.y1 + rail.y2) / 2,
-    Math.hypot(dx, dy) + 18,
-    23,
-    {
-      isStatic: true,
-      angle: Math.atan2(dy, dx),
-      friction: 0.008,
-      restitution: 0.38,
-      chamfer: { radius: 10 },
-    },
-  );
+function drainCrossing(
+  before: { x: number; y: number },
+  after: { x: number; y: number },
+  centre: { x: number; y: number },
+  radius: number,
+): number | null {
+  const x = before.x - centre.x,
+    y = before.y - centre.y;
+  const c = x * x + y * y - radius * radius;
+  if (c <= 0) return 0;
+  const dx = after.x - before.x,
+    dy = after.y - before.y;
+  const a = dx * dx + dy * dy,
+    b = 2 * (x * dx + y * dy),
+    discriminant = b * b - 4 * a * c;
+  if (a === 0 || discriminant < 0) return null;
+  const t = (-b - Math.sqrt(discriminant)) / (2 * a);
+  return t >= 0 && t <= 1 ? t : null;
 }
-function moveStatic(body: Matter.Body, x: number, y: number) {
-  const velocity = { x: x - body.position.x, y: y - body.position.y };
-  Body.setPosition(body, { x, y });
-  Body.setVelocity(body, velocity);
-}
+type Transit = { distance: number; entrySpeed: number; enteredAt: number };
 export class RaceSimulation {
   private engine: Matter.Engine;
   private bodies: Matter.Body[];
-  private rotors: Matter.Body[][];
-  private phases: number[];
+  private rotors: Matter.Body[];
   private speeds: number[];
-  private bumpers: Matter.Body[];
-  private bumperPhases: number[];
-  private bumperHits: number[];
-  private bumperCooldowns: number[][];
-  private gates: Matter.Body[];
-  private gatePhase: number;
-  private chaos: ChaosClock;
-  private kicks: (Kick | null)[];
-  private boostPhases: number[];
-  private boostedUntil: number[];
   private removable: Matter.Body[];
   private tieRanks: number[];
+  private stages: number[];
+  private transits: (Transit | null)[];
   private ticks = 0;
-  private result: Finish | null = null;
   private flushing = false;
+  private result: Finish | null = null;
   constructor(count: number, seed: number) {
     if (!Number.isInteger(count) || count < 1 || count > 8)
       throw new Error('Race needs 1–8 ducks');
     const random = seededRandom(seed);
-    this.chaos = new ChaosClock(seed, count);
-    this.kicks = Array(count).fill(null);
     this.engine = Engine.create({
       enableSleeping: false,
       positionIterations: 8,
       velocityIterations: 8,
     });
-    this.engine.gravity.y = 0.65;
-    const walls = [
-      ...WALL_X.map((x) =>
-        Bodies.rectangle(x, HEIGHT / 2, WALL_THICKNESS, HEIGHT + 200, {
-          isStatic: true,
-        }),
-      ),
-      Bodies.rectangle(480, -40, 860, 30, { isStatic: true }),
-    ];
+    this.engine.gravity.y = 0;
+    const walls = BOWLS.flatMap((b) =>
+      Array.from({ length: 64 }, (_, i) => {
+        const a = (i * Math.PI * 2) / 64,
+          next = ((i + 1) * Math.PI * 2) / 64,
+          mid = (a + next) / 2;
+        return Bodies.rectangle(
+          b.x + Math.cos(mid) * b.radius,
+          b.y + Math.sin(mid) * b.radius,
+          2 * b.radius * Math.sin(Math.PI / 64) + 3,
+          14,
+          {
+            isStatic: true,
+            angle: mid + Math.PI / 2,
+            restitution: 0.45,
+            friction: 0.001,
+          },
+        );
+      }),
+    );
+    this.speeds = PADDLES.map((p) => p.direction * (0.4 + random() * 0.25));
+    this.rotors = PADDLES.map((p) =>
+      Bodies.rectangle(p.x, p.y, p.length, p.width, {
+        isStatic: true,
+        angle: random() * Math.PI * 2,
+        chamfer: { radius: 6 },
+        restitution: 0.3,
+        friction: 0.001,
+      }),
+    );
     const pegs = PEGS.map((p) =>
       Bodies.circle(p.x, p.y, p.radius, {
         isStatic: true,
-        restitution: 0.86,
-        friction: 0.01,
+        restitution: 0.45,
+        friction: 0.001,
       }),
     );
-    const slopes = SLOPES.map(railBody),
-      rails = RAILS.map(railBody);
-    this.phases = ROTORS.map(() => random() * Math.PI * 2);
-    this.speeds = ROTORS.map((r) => r.direction * (1.05 + random() * 0.65));
-    this.rotors = ROTORS.map((r, i) =>
-      Array.from({ length: r.blades }, (_, j) =>
-        Bodies.rectangle(r.x, r.y, r.length, r.thickness, {
-          isStatic: true,
-          angle: this.phases[i] + (j * Math.PI) / r.blades,
-          friction: 0.12,
-          restitution: 0.75,
-          chamfer: { radius: 8 },
-        }),
-      ),
-    );
-    this.bumperPhases = BUMPERS.map(() => random() * Math.PI * 2);
-    this.bumpers = BUMPERS.map((b, i) =>
-      Bodies.circle(
-        b.x + Math.sin(this.bumperPhases[i]) * b.travel,
-        b.y,
-        b.radius,
-        { isStatic: true, restitution: 0.95, friction: 0.01 },
-      ),
-    );
-    this.bumperHits = BUMPERS.map(() => -10);
-    this.bumperCooldowns = Array.from({ length: count }, () =>
-      BUMPERS.map(() => -100),
-    );
-    this.gatePhase = random() * Math.PI * 2;
-    const initialPool = this.poolState();
-    this.gates = GATE.centres.map((x, i) =>
-      Bodies.rectangle(
-        x + initialPool.openings[i] * GATE.travel * (i === 0 ? -1 : 1),
-        GATE.y,
-        GATE.width,
-        GATE.thickness,
-        {
-          isStatic: true,
-          angle: GATE.angles[i],
-          friction: 0.008,
-          restitution: 0.6,
-          chamfer: { radius: 10 },
-        },
-      ),
-    );
-    this.boostPhases = BOOSTS.map(() => random() * Math.PI * 2);
-    this.boostedUntil = Array(count).fill(-1);
-    this.removable = [
-      ...pegs,
-      ...slopes,
-      ...this.rotors.flat(),
-      ...this.bumpers,
-      ...this.gates,
-    ];
-    // Physical slots do not know names, identities, colours, or roster order.
+    this.removable = [...this.rotors, ...pegs];
+    this.stages = Array(count).fill(0);
+    this.transits = Array(count).fill(null);
     this.bodies = Array.from({ length: count }, (_, slot) => {
+      const p = startPosition(slot, count),
+        speed = 7.8 + (random() - 0.5) * 0.5;
       const body = Bodies.circle(
-        startX(slot, count) + (random() - 0.5) * 15,
-        94 + (random() - 0.5) * 16,
+        p.x + (random() - 0.5) * 3,
+        p.y + (random() - 0.5) * 3,
         RADIUS,
         {
-          restitution: 0.58,
-          friction: 0.008,
-          frictionStatic: 0.015,
-          frictionAir: 0.006,
+          restitution: 0.72,
+          friction: 0.001,
+          frictionStatic: 0.001,
+          frictionAir: 0.007,
           density: 0.001,
         },
       );
-      Body.setVelocity(body, { x: (random() - 0.5) * 2.7, y: random() * 0.5 });
-      Body.setAngularVelocity(body, (random() - 0.5) * 0.04);
+      Body.setVelocity(body, {
+        x: -Math.sin(p.angle) * speed,
+        y: Math.cos(p.angle) * speed,
+      });
       return body;
     });
     this.tieRanks = shuffled(
@@ -221,43 +165,47 @@ export class RaceSimulation {
     );
     Composite.add(this.engine.world, [
       ...walls,
-      ...rails,
       ...this.removable,
       ...this.bodies,
     ]);
   }
-  private jetActive(index: number) {
+  private progress(slot: number) {
+    const stage = this.stages[slot];
+    if (stage >= BOWLS.length) return FINISH_DISTANCE;
+    const transit = this.transits[slot];
+    if (transit)
+      return (
+        stage * 1000 +
+        700 +
+        (300 * Math.max(0, transit.distance)) / PIPES[stage].at(-1)!.s
+      );
+    const b = BOWLS[stage],
+      p = this.bodies[slot].position,
+      r = Math.hypot(p.x - b.x, p.y - b.y);
     return (
-      !this.flushing &&
-      Math.sin((this.ticks / 60) * 3 + this.boostPhases[index]) > -0.2
+      stage * 1000 +
+      Math.max(
+        0,
+        Math.min(699, (700 * (b.radius - r)) / (b.radius - b.drain + RADIUS)),
+      )
     );
-  }
-  private poolState(): PoolState {
-    return wavePoolState(this.ticks / 60, this.gatePhase);
   }
   snapshot(): Frame {
     return {
       elapsed: this.ticks / 60,
-      ducks: this.bodies.map((body, slot) => ({
+      ducks: this.bodies.map((b, slot) => ({
         slot,
-        x: body.position.x,
-        y: body.position.y,
-        angle: body.angle,
-        vx: body.velocity.x,
-        vy: body.velocity.y,
-        boosted: this.boostedUntil[slot] > this.ticks,
-        kick: this.kicks[slot],
-      })),
-      rotorAngles: this.rotors.map((parts) => parts[0].angle),
-      bumpers: this.bumpers.map((b, i) => ({
         x: b.position.x,
         y: b.position.y,
-        hitAt: this.bumperHits[i],
+        angle: b.angle,
+        vx: b.velocity.x,
+        vy: b.velocity.y,
+        progress: this.progress(slot),
+        stage: this.stages[slot],
+        inTube: this.transits[slot] !== null,
+        hiddenInDrain: (this.transits[slot]?.distance ?? 0) < 0,
       })),
-      gates: this.gates.map((g) => g.position.x),
-      boostActive: BOOSTS.map((_, i) => this.jetActive(i)),
-      pool: this.poolState(),
-      chaos: this.chaos.snapshot(),
+      rotorAngles: this.rotors.map((r) => r.angle),
       flushing: this.flushing,
       result: this.result,
     };
@@ -266,141 +214,124 @@ export class RaceSimulation {
     if (this.result) return this.snapshot();
     const before = this.snapshot().ducks;
     this.ticks++;
-    const pool = this.poolState();
     if (this.ticks >= FLUSH_SECONDS * 60 && !this.flushing) {
       this.flushing = true;
       Composite.remove(this.engine.world, this.removable);
-      this.engine.gravity.y = 1.8;
     }
-    if (!this.flushing) {
-      const event = this.chaos.step(this.ticks);
-      if (event) {
-        this.speeds = ROTORS.map((_, i) => event.spin * (i % 2 ? -1 : 1));
-        this.bodies.forEach((body, slot) => {
-          const kick = event.kicks[slot];
-          Body.setVelocity(body, {
-            x: body.velocity.x * 0.25 + kick.vx,
-            y: kick.vy,
-          });
-          Body.setAngularVelocity(body, kick.vx * 0.013);
-          this.kicks[slot] = kick;
-          if (kick.vy > 0) this.boostedUntil[slot] = this.ticks + 25;
-        });
-      }
-      this.rotors.forEach((parts, i) =>
-        parts.forEach((body) => {
-          Body.setAngle(body, body.angle + this.speeds[i] / 60);
-          Body.setAngularVelocity(body, this.speeds[i] / 60);
-        }),
-      );
-      this.bumpers.forEach((body, i) => {
-        const b = BUMPERS[i];
-        moveStatic(
-          body,
-          b.x +
-            Math.sin(
-              this.bumperPhases[i] +
-                ((this.ticks / 60) * 2 * Math.PI) / b.period,
-            ) *
-              b.travel,
-          b.y,
-        );
+    if (!this.flushing)
+      this.rotors.forEach((r, i) => {
+        Body.setAngle(r, r.angle + this.speeds[i] / 60);
+        Body.setAngularVelocity(r, this.speeds[i] / 60);
       });
-      this.gates.forEach((body, i) =>
-        moveStatic(
-          body,
-          GATE.centres[i] + pool.openings[i] * GATE.travel * (i === 0 ? -1 : 1),
-          GATE.y,
-        ),
-      );
-    }
     this.bodies.forEach((body, slot) => {
-      const wind = Math.sin((this.ticks / 60) * 1.8) * 0.000009;
-      Body.applyForce(body, body.position, { x: wind * body.mass, y: 0 });
       if (
-        !this.flushing &&
-        body.position.y > POOL.top &&
-        body.position.y < POOL.bottom
-      ) {
-        const dx = body.position.x - POOL.x,
-          dy = body.position.y - POOL.y;
-        const radius = Math.max(100, Math.hypot(dx, dy));
-        const force = {
-          x: (-dy / radius) * pool.swirl * 0.0012,
-          y: (dx / radius) * pool.swirl * 0.0012 + 0.0001,
-        };
-        Body.applyForce(body, body.position, {
-          x: force.x * body.mass,
-          y: force.y * body.mass,
-        });
-      }
-      if (!this.flushing)
-        BOOSTS.forEach((boost, i) => {
-          if (!this.jetActive(i)) return;
-          const dx = body.position.x - boost.x,
-            dy = body.position.y - boost.y,
-            c = Math.cos(boost.angle),
-            s = Math.sin(boost.angle);
-          const along = dx * c + dy * s,
-            across = -dx * s + dy * c;
-          if (
-            Math.abs(along) < boost.length / 2 &&
-            Math.abs(across) < boost.width / 2
-          ) {
-            Body.applyForce(body, body.position, {
-              x: c * boost.force * body.mass,
-              y: s * boost.force * body.mass,
-            });
-            this.boostedUntil[slot] = this.ticks + 20;
-          }
-        });
-      body.frictionAir = this.flushing ? 0.012 : 0.006;
-      if (body.speed > 20) Body.setSpeed(body, 20);
+        body.isStatic ||
+        this.transits[slot] ||
+        this.stages[slot] >= BOWLS.length
+      )
+        return;
+      const b = BOWLS[this.stages[slot]],
+        k = b.strength * (this.flushing ? 2 : 1);
+      body.frictionAir = this.flushing ? 0.05 : b.friction;
+      // Gravity on a concave bowl: a smooth inward slope. Momentum supplies the orbit.
+      Body.applyForce(body, body.position, {
+        x: (b.x - body.position.x) * k * body.mass,
+        y: (b.y - body.position.y) * k * body.mass,
+      });
     });
     Engine.update(this.engine, STEP_MS);
-    // A ramp and wall can squeeze a strongly launched duck in opposite directions.
-    // Resolve any remaining wall penetration as a bounce, preserving vertical motion.
-    const left = WALL_X[0] + WALL_THICKNESS / 2 + RADIUS;
-    const right = WALL_X[1] - WALL_THICKNESS / 2 - RADIUS;
-    this.bodies.forEach((body) => {
-      if (body.position.x < left || body.position.x > right) {
-        const side = body.position.x < left ? 1 : -1;
-        const vx = body.velocity.x;
+    this.bodies.forEach((body, slot) => {
+      if (
+        this.transits[slot] ||
+        this.stages[slot] >= BOWLS.length ||
+        body.isStatic
+      )
+        return;
+      const b = BOWLS[this.stages[slot]],
+        dx = body.position.x - b.x,
+        dy = body.position.y - b.y,
+        r = Math.hypot(dx, dy);
+      if (r > b.radius - 7 - RADIUS + 1) {
+        const nx = dx / r,
+          ny = dy / r,
+          normal = body.velocity.x * nx + body.velocity.y * ny,
+          vx = body.velocity.x,
+          vy = body.velocity.y;
         Body.setPosition(body, {
-          x: side === 1 ? left : right,
-          y: body.position.y,
+          x: b.x + nx * (b.radius - 7 - RADIUS),
+          y: b.y + ny * (b.radius - 7 - RADIUS),
         });
-        Body.setVelocity(body, {
-          x: vx * side < 0 ? -vx * body.restitution : vx,
-          y: body.velocity.y,
-        });
+        if (normal > 0)
+          Body.setVelocity(body, {
+            x: vx - normal * nx * 1.45,
+            y: vy - normal * ny * 1.45,
+          });
+      }
+      const entry = drainCrossing(
+        before[slot],
+        body.position,
+        b,
+        b.drain - RADIUS,
+      );
+      if (entry !== null) {
+        this.transits[slot] = {
+          distance: -10 * entry,
+          entrySpeed: Math.sqrt(body.speed * body.speed + 58),
+          enteredAt: this.ticks - 1 + entry,
+        };
+        Body.setStatic(body, true);
+        body.collisionFilter.mask = 0;
+        Body.setPosition(body, { x: b.x, y: b.y });
       }
     });
-    if (!this.flushing)
-      this.bodies.forEach((body, slot) =>
-        this.bumpers.forEach((bumper, i) => {
-          const dx = body.position.x - bumper.position.x,
-            dy = body.position.y - bumper.position.y,
-            distance = Math.hypot(dx, dy);
-          if (
-            distance < RADIUS + BUMPERS[i].radius + 3 &&
-            distance > 0 &&
-            this.ticks - this.bumperCooldowns[slot][i] > 14
-          ) {
+    // The enclosed connecting tubes constrain movement along a rail. Preserve order and spacing.
+    for (let stage = 0; stage < BOWLS.length; stage++) {
+      const slots = this.transits
+        .map((t, slot) => ({ t, slot }))
+        .filter((v) => v.t && this.stages[v.slot] === stage)
+        .sort(
+          (a, b) =>
+            a.t!.enteredAt - b.t!.enteredAt ||
+            this.tieRanks[a.slot] - this.tieRanks[b.slot],
+        );
+      let ahead = Infinity;
+      for (const { t, slot } of slots) {
+        const body = this.bodies[slot],
+          length = PIPES[stage].at(-1)!.s;
+        // Negative distance is the vertical drop below the drain, before the visible pipe.
+        t!.distance = Math.min(
+          length,
+          t!.distance + 10,
+          ahead - 2 * RADIUS - 6,
+        );
+        ahead = t!.distance;
+        const p = pipePoint(stage, t!.distance);
+        Body.setPosition(body, p);
+        if (t!.distance >= length) {
+          this.stages[slot]++;
+          this.transits[slot] = null;
+          if (this.stages[slot] < BOWLS.length) {
+            Body.setStatic(body, false);
+            body.collisionFilter.mask = 0xffffffff;
             Body.setVelocity(body, {
-              x: body.velocity.x + (dx / distance) * 2.6,
-              y: body.velocity.y + (dy / distance) * 2.6,
+              x: p.tx * t!.entrySpeed,
+              y: p.ty * t!.entrySpeed,
             });
-            this.bumperCooldowns[slot][i] = this.ticks;
-            this.bumperHits[i] = this.ticks / 60;
           }
-        }),
+        }
+      }
+    }
+    const after = this.snapshot().ducks,
+      slot = firstCrossing(
+        before.map((d) => ({ slot: d.slot, y: d.progress })),
+        after.map((d) => ({ slot: d.slot, y: d.progress })),
+        FINISH_DISTANCE,
+        this.tieRanks,
       );
-    const after = this.snapshot().ducks;
-    const slot = firstCrossing(before, after, FINISH_Y, this.tieRanks);
     if (slot !== null) {
       const fraction =
-        (FINISH_Y - before[slot].y) / (after[slot].y - before[slot].y);
+        (FINISH_DISTANCE - before[slot].progress) /
+        (after[slot].progress - before[slot].progress);
       this.result = {
         slot,
         time: (this.ticks - 1 + fraction) / 60,
@@ -408,7 +339,9 @@ export class RaceSimulation {
       };
     } else if (this.ticks >= MAX_SECONDS * 60) {
       const leader = [...after].sort(
-        (a, b) => b.y - a.y || this.tieRanks[a.slot] - this.tieRanks[b.slot],
+        (a, b) =>
+          b.progress - a.progress ||
+          this.tieRanks[a.slot] - this.tieRanks[b.slot],
       )[0];
       this.result = {
         slot: leader.slot,
