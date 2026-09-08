@@ -1,0 +1,97 @@
+'use client';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { RaceSimulation, STEP_MS, type Frame } from '@/lib/race';
+import { freshSeed, shuffled } from '@/lib/random';
+import { raceMembers, type Member } from '@/lib/roster';
+export type RaceSetup = { members: Member[]; seed: number; sequence: number };
+export function useRace() {
+  const [setup, setSetup] = useState<RaceSetup | null>(null);
+  const [frame, setFrame] = useState<Frame | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
+  const locked = useRef(false);
+  const sequence = useRef(0);
+  const start = useCallback((roster: Member[]) => {
+    if (locked.current) throw new Error('Заезд уже идёт.');
+    const members = raceMembers(roster);
+    // Separate cryptographic draws: physical conditions are never derived from identity order.
+    const ordered = shuffled(members);
+    const seed = freshSeed();
+    const next = { members: ordered, seed, sequence: ++sequence.current };
+    locked.current = true;
+    setFrame(null);
+    setCountdown(3);
+    setSetup(next);
+    return { participants: ordered.map((p) => p.name), status: 'countdown' };
+  }, []);
+  const reset = useCallback(() => {
+    if (locked.current) return;
+    setSetup(null);
+    setFrame(null);
+    setCountdown(null);
+  }, []);
+  useEffect(() => {
+    if (!setup) return;
+    const simulation = new RaceSimulation(setup.members.length, setup.seed);
+    setFrame(simulation.snapshot());
+    let previous = performance.now(),
+      accumulator = 0,
+      countdownMs = 0,
+      lastRender = 0,
+      request = 0,
+      finished = false;
+    const visibility = () => {
+      previous = performance.now();
+      setPaused(document.hidden);
+    };
+    document.addEventListener('visibilitychange', visibility);
+    const animate = (now: number) => {
+      if (finished) return;
+      const delta = Math.min(now - previous, 120);
+      previous = now;
+      if (document.hidden) {
+        request = requestAnimationFrame(animate);
+        return;
+      }
+      if (countdownMs < 3000) {
+        countdownMs += delta;
+        setCountdown(Math.max(1, Math.ceil((3000 - countdownMs) / 1000)));
+      } else {
+        setCountdown(null);
+        accumulator += delta;
+        let current = simulation.snapshot();
+        while (accumulator >= STEP_MS && !current.result) {
+          current = simulation.step();
+          accumulator -= STEP_MS;
+        }
+        if (now - lastRender >= 30 || current.result) {
+          setFrame(current);
+          lastRender = now;
+        }
+        if (current.result) {
+          locked.current = false;
+          finished = true;
+          setPaused(false);
+          return;
+        }
+      }
+      request = requestAnimationFrame(animate);
+    };
+    request = requestAnimationFrame(animate);
+    return () => {
+      finished = true;
+      cancelAnimationFrame(request);
+      document.removeEventListener('visibilitychange', visibility);
+      simulation.destroy();
+    };
+  }, [setup]);
+  return {
+    setup,
+    frame,
+    countdown,
+    paused,
+    start,
+    reset,
+    running: setup !== null && !frame?.result,
+  };
+}
