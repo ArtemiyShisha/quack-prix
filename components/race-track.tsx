@@ -4,6 +4,10 @@ import {
   ROTORS,
   RAILS,
   SLOPES,
+  BUMPERS,
+  BOOSTS,
+  GATE,
+  SECTIONS,
   HUES,
   COLOURS,
   startX,
@@ -37,10 +41,23 @@ export function RaceTrack({
       className="race-svg"
       viewBox={`0 ${camera} 960 ${overview ? HEIGHT : VIEW_HEIGHT}`}
       role="img"
-      aria-label="Длинная трасса: слалом, три каскада с вертушками и финишная воронка"
+      aria-label="Трасса с развилкой, подвижными бамперами, турбо-каскадами, шлюзами и финишной воронкой"
       style={{ aspectRatio: '960/760' }}
     >
       <defs>
+        <clipPath id="inside-pool">
+          <rect x="69" width="822" height={HEIGHT} />
+        </clipPath>
+        <pattern
+          id="sluice-stripes"
+          width="32"
+          height="32"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(35)"
+        >
+          <rect width="32" height="32" fill="#267fbc" />
+          <rect width="14" height="32" fill="#b4e8ff" />
+        </pattern>
         <pattern
           id="pool-grid"
           width="38"
@@ -91,12 +108,7 @@ export function RaceTrack({
         strokeDasharray="12 9"
         opacity=".9"
       />
-      {[
-        [185, '01 / СЛАЛОМ'],
-        [535, '02 / ПРАВЫЙ ПОВОРОТ'],
-        [894, '03 / МЫЛЬНЫЙ КАСКАД'],
-        [1367, '04 / ПОСЛЕДНИЙ ШАНС'],
-      ].map(([y, label]) => (
+      {SECTIONS.map(({ y, label }) => (
         <text
           key={String(y)}
           x="105"
@@ -129,13 +141,110 @@ export function RaceTrack({
           </g>
         ))}
       </g>
+      <g opacity={ghost}>
+        {BOOSTS.map((boost, i) => {
+          const active = frame?.boostActive[i] ?? true;
+          return (
+            <g
+              key={i}
+              transform={`translate(${boost.x} ${boost.y}) rotate(${(boost.angle * 180) / Math.PI})`}
+            >
+              <rect
+                x={-boost.length / 2 - 7}
+                y={-boost.width / 2 - 6}
+                width={boost.length + 14}
+                height={boost.width + 12}
+                rx="24"
+                fill="#c1fff1"
+                opacity={active ? 0.65 : 0.25}
+              />
+              <rect
+                x={-boost.length / 2}
+                y={-boost.width / 2}
+                width={boost.length}
+                height={boost.width}
+                rx="20"
+                fill={active ? '#21ba9b' : '#79c6c3'}
+                opacity=".8"
+              />
+              {[-48, -12, 24, 60].map((x, j) => (
+                <path
+                  key={x}
+                  d={`M${x - 9} -12L${x + 3} 0L${x - 9} 12`}
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={
+                    active
+                      ? 0.6 + 0.4 * Math.sin((frame?.elapsed ?? 0) * 8 - j)
+                      : 0.4
+                  }
+                />
+              ))}
+            </g>
+          );
+        })}
+        {BUMPERS.map((bumper, i) => {
+          const state = frame?.bumpers[i];
+          const impact = state
+            ? Math.max(0, 1 - ((frame?.elapsed ?? 0) - state.hitAt) / 0.45)
+            : 0;
+          return (
+            <g
+              key={i}
+              transform={`translate(${state?.x ?? bumper.x} ${bumper.y})`}
+            >
+              <path
+                d={`M${bumper.x - (state?.x ?? bumper.x) - bumper.travel} 0h${bumper.travel * 2}`}
+                stroke="#4697ae"
+                strokeWidth="8"
+                strokeLinecap="round"
+                opacity=".25"
+              />
+              {impact > 0 && (
+                <circle
+                  r={bumper.radius + 9 + (1 - impact) * 28}
+                  fill="none"
+                  stroke="#fff8c9"
+                  strokeWidth={5 * impact}
+                  opacity={impact}
+                />
+              )}
+              <circle
+                cy="7"
+                r={bumper.radius + 3}
+                fill="#458fac"
+                opacity=".4"
+              />
+              <circle
+                r={bumper.radius}
+                fill={impact > 0 ? '#ffc777' : '#f3799b'}
+                stroke="#ffe7ec"
+                strokeWidth="5"
+              />
+              <circle
+                r={bumper.radius - 11}
+                fill="#fff1e4"
+                stroke="#d75b84"
+                strokeWidth="3"
+              />
+              <path d="M-5 -14L8 -14L0 -2H10L-7 16L-2 3H-11Z" fill="#e9698e" />
+            </g>
+          );
+        })}
+      </g>
       {ROTORS.map((rotor, i) => (
         <g
           key={i}
           opacity={ghost}
           transform={`translate(${rotor.x} ${rotor.y}) rotate(${frame ? (frame.rotorAngles[i] * 180) / Math.PI : i % 2 ? -25 : 25})`}
         >
-          {[0, 90].map((angle) => (
+          {Array.from(
+            { length: rotor.blades },
+            (_, j) => (j * 180) / rotor.blades,
+          ).map((angle) => (
             <g key={angle} transform={`rotate(${angle})`}>
               <rect
                 x={-rotor.length / 2}
@@ -152,8 +261,8 @@ export function RaceTrack({
                 width={rotor.length}
                 height={rotor.thickness}
                 rx="11"
-                fill={i === 3 ? '#ffcd5a' : '#ff9570'}
-                stroke={i === 3 ? '#fff0b6' : '#ffd1bb'}
+                fill={i === ROTORS.length - 1 ? '#ffcd5a' : '#ff9570'}
+                stroke={i === ROTORS.length - 1 ? '#fff0b6' : '#ffd1bb'}
                 strokeWidth="4"
               />
             </g>
@@ -184,6 +293,48 @@ export function RaceTrack({
           />
         </g>
       ))}
+      <g clipPath="url(#inside-pool)" opacity={ghost}>
+        {GATE.centres.map((x, i) => (
+          <g
+            key={i}
+            transform={`translate(${frame?.gates[i] ?? x} ${GATE.y}) rotate(${(GATE.angles[i] * 180) / Math.PI})`}
+          >
+            <rect
+              x={-GATE.width / 2}
+              y={-GATE.thickness / 2 + 8}
+              width={GATE.width}
+              height={GATE.thickness}
+              rx="10"
+              fill="#338eb0"
+              opacity=".35"
+            />
+            <rect
+              x={-GATE.width / 2}
+              y={-GATE.thickness / 2}
+              width={GATE.width}
+              height={GATE.thickness}
+              rx="10"
+              fill="url(#sluice-stripes)"
+              stroke="#e4f9ff"
+              strokeWidth="4"
+            />
+            <circle
+              cx={(i === 0 ? 1 : -1) * (GATE.width / 2 - 13)}
+              r="6"
+              fill="#fff"
+            />
+          </g>
+        ))}
+        <path
+          d="M455 1620l25 16 25-16M455 1638l25 16 25-16"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity=".6"
+        />
+      </g>
       <path d={`M83 ${FINISH_Y}H877`} stroke="url(#finish)" strokeWidth="29" />
       <text
         x="480"
@@ -201,6 +352,22 @@ export function RaceTrack({
         return (
           <g key={duck.id} opacity={players.length ? 1 : 0.55}>
             <title>{duck.name || `Утка ${slot + 1}`}</title>
+            {state?.boosted && (
+              <g
+                transform={`translate(${x} ${y}) rotate(${(Math.atan2(state.vy, state.vx) * 180) / Math.PI})`}
+              >
+                {[-14, 0, 14].map((offset, i) => (
+                  <path
+                    key={offset}
+                    d={`M-22 ${offset}h-${i === 1 ? 52 : 34}`}
+                    stroke="#eaffcd"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    opacity=".9"
+                  />
+                ))}
+              </g>
+            )}
             {winning && (
               <circle
                 cx={x}

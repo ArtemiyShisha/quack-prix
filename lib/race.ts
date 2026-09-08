@@ -9,13 +9,25 @@ import {
   ROTORS,
   SLOPES,
   RAILS,
+  BUMPERS,
+  BOOSTS,
+  GATE,
   startX,
 } from './track.ts';
 const { Engine, Bodies, Body, Composite } = Matter;
 export const STEP_MS = 1000 / 60;
-export const FLUSH_SECONDS = 32;
-export const MAX_SECONDS = 40;
-export type DuckState = { slot: number; x: number; y: number; angle: number };
+export const COUNTDOWN_SECONDS = 3;
+export const FLUSH_SECONDS = 40;
+export const MAX_SECONDS = 48;
+export type DuckState = {
+  slot: number;
+  x: number;
+  y: number;
+  angle: number;
+  vx: number;
+  vy: number;
+  boosted: boolean;
+};
 export type Finish = {
   slot: number;
   time: number;
@@ -25,12 +37,15 @@ export type Frame = {
   elapsed: number;
   ducks: DuckState[];
   rotorAngles: number[];
+  bumpers: { x: number; y: number; hitAt: number }[];
+  gates: number[];
+  boostActive: boolean[];
   flushing: boolean;
   result: Finish | null;
 };
 export function firstCrossing(
-  before: DuckState[],
-  after: DuckState[],
+  before: Pick<DuckState, 'slot' | 'y'>[],
+  after: Pick<DuckState, 'slot' | 'y'>[],
   line: number,
   tieRanks: number[],
 ): number | null {
@@ -68,12 +83,25 @@ function railBody(rail: {
     },
   );
 }
+function moveStatic(body: Matter.Body, x: number, y: number) {
+  const velocity = { x: x - body.position.x, y: y - body.position.y };
+  Body.setPosition(body, { x, y });
+  Body.setVelocity(body, velocity);
+}
 export class RaceSimulation {
   private engine: Matter.Engine;
   private bodies: Matter.Body[];
   private rotors: Matter.Body[][];
   private phases: number[];
   private speeds: number[];
+  private bumpers: Matter.Body[];
+  private bumperPhases: number[];
+  private bumperHits: number[];
+  private bumperCooldowns: number[][];
+  private gates: Matter.Body[];
+  private gatePhase: number;
+  private boostPhases: number[];
+  private boostedUntil: number[];
   private removable: Matter.Body[];
   private tieRanks: number[];
   private ticks = 0;
@@ -88,14 +116,11 @@ export class RaceSimulation {
       positionIterations: 8,
       velocityIterations: 8,
     });
-    this.engine.gravity.y = 0.72;
+    this.engine.gravity.y = 0.65;
     const walls = [
-      Bodies.rectangle(WALL_X[0], HEIGHT / 2, 26, HEIGHT + 200, {
-        isStatic: true,
-      }),
-      Bodies.rectangle(WALL_X[1], HEIGHT / 2, 26, HEIGHT + 200, {
-        isStatic: true,
-      }),
+      ...WALL_X.map((x) =>
+        Bodies.rectangle(x, HEIGHT / 2, 26, HEIGHT + 200, { isStatic: true }),
+      ),
       Bodies.rectangle(480, -40, 860, 30, { isStatic: true }),
     ];
     const pegs = PEGS.map((p) =>
@@ -105,23 +130,60 @@ export class RaceSimulation {
         friction: 0.01,
       }),
     );
-    const slopes = SLOPES.map(railBody);
-    const rails = RAILS.map(railBody);
+    const slopes = SLOPES.map(railBody),
+      rails = RAILS.map(railBody);
     this.phases = ROTORS.map(() => random() * Math.PI * 2);
-    this.speeds = ROTORS.map((r) => r.direction * (0.9 + random() * 0.6));
+    this.speeds = ROTORS.map((r) => r.direction * (1.05 + random() * 0.65));
     this.rotors = ROTORS.map((r, i) =>
-      [0, Math.PI / 2].map((offset) =>
+      Array.from({ length: r.blades }, (_, j) =>
         Bodies.rectangle(r.x, r.y, r.length, r.thickness, {
           isStatic: true,
-          angle: this.phases[i] + offset,
+          angle: this.phases[i] + (j * Math.PI) / r.blades,
           friction: 0.12,
-          restitution: 0.7,
+          restitution: 0.75,
           chamfer: { radius: 8 },
         }),
       ),
     );
-    this.removable = [...pegs, ...slopes, ...this.rotors.flat()];
-    // Body creation and force calculation never receive names, IDs, or roster positions.
+    this.bumperPhases = BUMPERS.map(() => random() * Math.PI * 2);
+    this.bumpers = BUMPERS.map((b, i) =>
+      Bodies.circle(
+        b.x + Math.sin(this.bumperPhases[i]) * b.travel,
+        b.y,
+        b.radius,
+        { isStatic: true, restitution: 1.05, friction: 0.01 },
+      ),
+    );
+    this.bumperHits = BUMPERS.map(() => -10);
+    this.bumperCooldowns = Array.from({ length: count }, () =>
+      BUMPERS.map(() => -100),
+    );
+    this.gatePhase = random() * Math.PI * 2;
+    this.gates = GATE.centres.map((x, i) =>
+      Bodies.rectangle(
+        x + Math.sin(this.gatePhase) * GATE.travel * (i === 0 ? 1 : -1),
+        GATE.y,
+        GATE.width,
+        GATE.thickness,
+        {
+          isStatic: true,
+          angle: GATE.angles[i],
+          friction: 0.008,
+          restitution: 0.6,
+          chamfer: { radius: 10 },
+        },
+      ),
+    );
+    this.boostPhases = BOOSTS.map(() => random() * Math.PI * 2);
+    this.boostedUntil = Array(count).fill(-1);
+    this.removable = [
+      ...pegs,
+      ...slopes,
+      ...this.rotors.flat(),
+      ...this.bumpers,
+      ...this.gates,
+    ];
+    // Physical slots do not know names, identities, colours, or roster order.
     this.bodies = Array.from({ length: count }, (_, slot) => {
       const body = Bodies.circle(
         startX(slot, count) + (random() - 0.5) * 15,
@@ -131,7 +193,7 @@ export class RaceSimulation {
           restitution: 0.58,
           friction: 0.008,
           frictionStatic: 0.015,
-          frictionAir: 0.006,
+          frictionAir: 0.009,
           density: 0.001,
         },
       );
@@ -150,6 +212,12 @@ export class RaceSimulation {
       ...this.bodies,
     ]);
   }
+  private jetActive(index: number) {
+    return (
+      !this.flushing &&
+      Math.sin((this.ticks / 60) * 3 + this.boostPhases[index]) > -0.2
+    );
+  }
   snapshot(): Frame {
     return {
       elapsed: this.ticks / 60,
@@ -158,8 +226,18 @@ export class RaceSimulation {
         x: body.position.x,
         y: body.position.y,
         angle: body.angle,
+        vx: body.velocity.x,
+        vy: body.velocity.y,
+        boosted: this.boostedUntil[slot] > this.ticks,
       })),
       rotorAngles: this.rotors.map((parts) => parts[0].angle),
+      bumpers: this.bumpers.map((b, i) => ({
+        x: b.position.x,
+        y: b.position.y,
+        hitAt: this.bumperHits[i],
+      })),
+      gates: this.gates.map((g) => g.position.x),
+      boostActive: BOOSTS.map((_, i) => this.jetActive(i)),
       flushing: this.flushing,
       result: this.result,
     };
@@ -171,28 +249,93 @@ export class RaceSimulation {
     if (this.ticks >= FLUSH_SECONDS * 60 && !this.flushing) {
       this.flushing = true;
       Composite.remove(this.engine.world, this.removable);
-      this.engine.gravity.y = 1.6;
+      this.engine.gravity.y = 1.8;
     }
-    if (!this.flushing)
+    if (!this.flushing) {
       this.rotors.forEach((parts, i) =>
         parts.forEach((body, j) => {
           Body.setAngle(
             body,
             this.phases[i] +
-              this.speeds[i] * (this.ticks / 60) +
-              (j * Math.PI) / 2,
+              (this.speeds[i] * this.ticks) / 60 +
+              (j * Math.PI) / ROTORS[i].blades,
           );
           Body.setAngularVelocity(body, this.speeds[i] / 60);
         }),
       );
-    // A common sideways current frees near-static contacts without assisting any named player.
-    this.bodies.forEach((body) => {
+      this.bumpers.forEach((body, i) => {
+        const b = BUMPERS[i];
+        moveStatic(
+          body,
+          b.x +
+            Math.sin(
+              this.bumperPhases[i] +
+                ((this.ticks / 60) * 2 * Math.PI) / b.period,
+            ) *
+              b.travel,
+          b.y,
+        );
+      });
+      this.gates.forEach((body, i) =>
+        moveStatic(
+          body,
+          GATE.centres[i] +
+            Math.sin(
+              this.gatePhase + ((this.ticks / 60) * 2 * Math.PI) / GATE.period,
+            ) *
+              GATE.travel *
+              (i === 0 ? 1 : -1),
+          GATE.y,
+        ),
+      );
+    }
+    this.bodies.forEach((body, slot) => {
       const wind = Math.sin((this.ticks / 60) * 1.8) * 0.000009;
       Body.applyForce(body, body.position, { x: wind * body.mass, y: 0 });
+      if (!this.flushing)
+        BOOSTS.forEach((boost, i) => {
+          if (!this.jetActive(i)) return;
+          const dx = body.position.x - boost.x,
+            dy = body.position.y - boost.y,
+            c = Math.cos(boost.angle),
+            s = Math.sin(boost.angle);
+          const along = dx * c + dy * s,
+            across = -dx * s + dy * c;
+          if (
+            Math.abs(along) < boost.length / 2 &&
+            Math.abs(across) < boost.width / 2
+          ) {
+            Body.applyForce(body, body.position, {
+              x: c * boost.force * body.mass,
+              y: s * boost.force * body.mass,
+            });
+            this.boostedUntil[slot] = this.ticks + 20;
+          }
+        });
       if (this.flushing) body.frictionAir = 0.012;
-      if (body.speed > 19) Body.setSpeed(body, 19);
+      if (body.speed > 20) Body.setSpeed(body, 20);
     });
     Engine.update(this.engine, STEP_MS);
+    if (!this.flushing)
+      this.bodies.forEach((body, slot) =>
+        this.bumpers.forEach((bumper, i) => {
+          const dx = body.position.x - bumper.position.x,
+            dy = body.position.y - bumper.position.y,
+            distance = Math.hypot(dx, dy);
+          if (
+            distance < RADIUS + BUMPERS[i].radius + 3 &&
+            distance > 0 &&
+            this.ticks - this.bumperCooldowns[slot][i] > 14
+          ) {
+            Body.setVelocity(body, {
+              x: body.velocity.x + (dx / distance) * 2.7,
+              y: body.velocity.y + (dy / distance) * 2.7,
+            });
+            this.bumperCooldowns[slot][i] = this.ticks;
+            this.bumperHits[i] = this.ticks / 60;
+          }
+        }),
+      );
     const after = this.snapshot().ducks;
     const slot = firstCrossing(before, after, FINISH_Y, this.tieRanks);
     if (slot !== null) {
@@ -215,7 +358,7 @@ export class RaceSimulation {
     }
     return this.snapshot();
   }
-  destroy(): void {
+  destroy() {
     Composite.clear(this.engine.world, false);
     Engine.clear(this.engine);
   }

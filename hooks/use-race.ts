@@ -1,6 +1,11 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RaceSimulation, STEP_MS, type Frame } from '@/lib/race';
+import {
+  RaceSimulation,
+  STEP_MS,
+  COUNTDOWN_SECONDS,
+  type Frame,
+} from '@/lib/race';
 import { freshSeed, shuffled } from '@/lib/random';
 import { raceMembers, type Member } from '@/lib/roster';
 export type RaceSetup = { members: Member[]; seed: number; sequence: number };
@@ -20,7 +25,7 @@ export function useRace() {
     const next = { members: ordered, seed, sequence: ++sequence.current };
     locked.current = true;
     setFrame(null);
-    setCountdown(3);
+    setCountdown(COUNTDOWN_SECONDS);
     setSetup(next);
     return { participants: ordered.map((p) => p.name), status: 'countdown' };
   }, []);
@@ -53,9 +58,14 @@ export function useRace() {
         request = requestAnimationFrame(animate);
         return;
       }
-      if (countdownMs < 3000) {
+      if (countdownMs < COUNTDOWN_SECONDS * 1000) {
         countdownMs += delta;
-        setCountdown(Math.max(1, Math.ceil((3000 - countdownMs) / 1000)));
+        setCountdown(
+          Math.max(
+            1,
+            Math.ceil((COUNTDOWN_SECONDS * 1000 - countdownMs) / 1000),
+          ),
+        );
       } else {
         setCountdown(null);
         accumulator += delta;

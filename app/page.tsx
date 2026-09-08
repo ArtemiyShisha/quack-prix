@@ -24,6 +24,7 @@ import {
   type Member,
 } from '@/lib/roster';
 import { HUES, FINISH_Y } from '@/lib/track';
+import { FLUSH_SECONDS, MAX_SECONDS } from '@/lib/race';
 import { prepareSound, quack } from '@/lib/sound';
 import { useGameTools } from '@/hooks/use-game-tools';
 
@@ -122,7 +123,9 @@ export default function Home() {
         : frame?.flushing
           ? 'Большой смыв! Все заслонки открыты'
           : running
-            ? `${leaderMember?.name ?? 'Утка'} вырывается вперёд`
+            ? leader?.boosted
+              ? `${leaderMember?.name ?? 'Утка'} ловит турбо!`
+              : `${leaderMember?.name ?? 'Утка'} вырывается вперёд`
             : 'Утки на старте';
   const elapsed = frame?.elapsed ?? 0;
   return (
@@ -210,14 +213,15 @@ export default function Home() {
             </summary>
             <p>
               Перед каждым заездом имена случайно распределяются по стартовым
-              местам. Меняются начальные толчки и положение вертушек. Все утки
-              одинаковы по весу и размеру — кто первым пересечёт финиш, тот и
-              ведущий.
+              местам. Меняются начальные толчки, движение бамперов, шлюзов и
+              вертушек, а также всплески турбо. Все утки одинаковы по весу и
+              размеру — кто первым пересечёт финиш, тот и ведущий.
             </p>
             <p>
-              Повторная победа возможна. На 32-й секунде открывается «Большой
-              смыв». Если к 40-й секунде никто не финишировал, ведущим станет
-              тот, кто спустился дальше.
+              Повторная победа возможна. Если заезд затянулся, на{' '}
+              {FLUSH_SECONDS}-й секунде открывается «Большой смыв». Если к{' '}
+              {MAX_SECONDS}-й секунде никто не финишировал, ведущим станет тот,
+              кто спустился дальше.
             </p>
           </details>
           {running && (
@@ -231,7 +235,7 @@ export default function Home() {
         <section className="race-panel" aria-label="Гоночная трасса">
           <div className="race-heading">
             <div>
-              <div className="eyebrow">ТРАССА 01 · ТРИ КАСКАДА</div>
+              <div className="eyebrow">ТРАССА 01 · УТИНЫЙ АКВАПАРК</div>
               <h2>
                 Большой заплыв<span className="track-sticker">КРЯ!</span>
               </h2>
@@ -314,9 +318,9 @@ export default function Home() {
           </div>
           <div className="race-footer">
             <span>
-              <Waves size={17} /> Слалом → каскады → воронка → микрофон
+              <Waves size={17} /> Развилка → пинбол → турбо → шлюзы
             </span>
-            <span>Обычно 20–30 секунд</span>
+            <span>Около 30 секунд, как поплывёт</span>
           </div>
         </section>
       </main>

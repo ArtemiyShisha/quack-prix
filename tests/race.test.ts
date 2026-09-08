@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RaceSimulation, firstCrossing } from '../lib/race.ts';
+import {
+  RaceSimulation,
+  firstCrossing,
+  FLUSH_SECONDS,
+  MAX_SECONDS,
+} from '../lib/race.ts';
 const duck = (slot: number, y: number) => ({ slot, x: 480, y, angle: 0 });
 test('finish detects fast crossings and compares substep crossing times', () => {
   assert.equal(
@@ -59,14 +64,15 @@ test('new physical seeds change trajectories', () => {
   a.destroy();
   b.destroy();
 });
-test('race ends within 40 seconds and keeps its first result frozen', () => {
+test('race keeps a generous emergency bound and freezes its first result', () => {
   for (let n = 1; n <= 8; n++)
     for (let seed = 0; seed < 6; seed++) {
       const race = new RaceSimulation(n, seed);
       let frame = race.snapshot();
-      for (let t = 0; t < 2401 && !frame.result; t++) frame = race.step();
+      for (let t = 0; t < MAX_SECONDS * 60 + 1 && !frame.result; t++)
+        frame = race.step();
       assert.ok(frame.result, `n=${n} seed=${seed}`);
-      assert.ok(frame.elapsed <= 40.001);
+      assert.ok(frame.elapsed <= MAX_SECONDS + 0.001);
       assert.ok(frame.result.slot >= 0 && frame.result.slot < n);
       assert.deepEqual(race.step(), frame);
       race.destroy();
@@ -87,13 +93,17 @@ test('a completely jammed race triggers the shared flush and explicit distance f
     Matter.Body.setStatic(body, true);
   });
   let frame = race.snapshot();
-  for (let t = 0; t < 1919; t++) frame = race.step();
+  for (let t = 0; t < FLUSH_SECONDS * 60 - 1; t++) frame = race.step();
   assert.equal(frame.flushing, false);
   frame = race.step();
   assert.equal(frame.flushing, true);
-  assert.equal(frame.elapsed, 32);
+  assert.equal(frame.elapsed, FLUSH_SECONDS);
   while (!frame.result) frame = race.step();
-  assert.deepEqual(frame.result, { slot: 2, time: 40, reason: 'distance' });
+  assert.deepEqual(frame.result, {
+    slot: 2,
+    time: MAX_SECONDS,
+    reason: 'distance',
+  });
   assert.deepEqual(race.step(), frame);
   race.destroy();
   const tie = new RaceSimulation(4, 118);
