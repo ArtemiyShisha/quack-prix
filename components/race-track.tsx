@@ -5,7 +5,6 @@ import {
   RAILS,
   SLOPES,
   BUMPERS,
-  CURRENT,
   BOOSTS,
   GATE,
   POOL,
@@ -19,6 +18,7 @@ import {
   FINISH_Y,
 } from '@/lib/track';
 import type { Frame } from '@/lib/race';
+import { wavePoolState } from '@/lib/wave-pool';
 import type { Member } from '@/lib/roster';
 export function RaceTrack({
   members,
@@ -38,21 +38,19 @@ export function RaceTrack({
     ? 0
     : Math.max(0, Math.min(HEIGHT - VIEW_HEIGHT, leadY - 430));
   const ghost = frame?.flushing ? 0.15 : 1;
-  const pool = frame?.pool;
-  const poolFill = pool?.fill ?? 0;
-  const waveHeight = 65 + poolFill * 200;
+  const pool = frame?.pool ?? wavePoolState(0, 0);
+  const waveHeight = 185 + Math.sin((frame?.elapsed ?? 0) * 3) * 35;
   const poolLabel =
-    pool?.phase === 'releasing'
-      ? 'ПОЕХАЛА ВОЛНА!'
-      : pool?.phase === 'filling'
-        ? 'ВОЛНА НАБИРАЕТ СИЛУ'
-        : 'ЗДЕСЬ ВСЁ МОЖЕТ ПОМЕНЯТЬСЯ';
+    pool.swirl >= 0
+      ? 'ВИХРЬ ПО ЧАСОВОЙ СТРЕЛКЕ'
+      : 'ВИХРЬ ПРОТИВ ЧАСОВОЙ СТРЕЛКИ';
+  const eventFlash = !!frame && frame.elapsed - frame.chaos.at < 0.85;
   return (
     <svg
       className="race-svg"
       viewBox={`0 ${camera} 960 ${overview ? HEIGHT : VIEW_HEIGHT}`}
       role="img"
-      aria-label="Трасса с развилкой, мягким слаломом среди буёв, турбо-каскадами, волновым бассейном и последним каскадом"
+      aria-label="Быстрая трасса со случайными гейзерами, пинболом, меняющими направление вертушками и проточным водоворотом"
       style={{ aspectRatio: '960/760' }}
     >
       <defs>
@@ -106,14 +104,6 @@ export function RaceTrack({
       </defs>
       <rect width="960" height={HEIGHT} fill="url(#water)" />
       <rect width="960" height={HEIGHT} fill="url(#pool-grid)" />
-      <rect
-        x="83"
-        y={CURRENT.top}
-        width="794"
-        height={CURRENT.bottom - CURRENT.top}
-        fill="#3b93bb"
-        opacity=".08"
-      />
       <path
         d={`M${WALL_X[0]} 0V${HEIGHT}M${WALL_X[1]} 0V${HEIGHT}`}
         stroke="#61bfdc"
@@ -181,7 +171,7 @@ export function RaceTrack({
             fill="none"
             stroke="#e9ffff"
             strokeWidth="4"
-            opacity={pool?.phase === 'filling' ? 0.75 : 0.3}
+            opacity=".75"
           >
             {[65, 108, 150].map((radius) => (
               <circle
@@ -210,23 +200,6 @@ export function RaceTrack({
           <text textAnchor="middle" y="1" className="pool-caption">
             {poolLabel}
           </text>
-          <rect
-            x="-106"
-            y="18"
-            width="212"
-            height="7"
-            rx="3.5"
-            fill="#328ac0"
-            opacity=".2"
-          />
-          <rect
-            x="-106"
-            y="18"
-            width={212 * poolFill}
-            height="7"
-            rx="3.5"
-            fill="#fbaf53"
-          />
         </g>
       </g>
       <g opacity={ghost}>
@@ -339,23 +312,17 @@ export function RaceTrack({
               />
               <circle
                 r={bumper.radius}
-                fill={impact > 0 ? '#ffe09e' : '#58bba9'}
-                stroke="#e0fff2"
+                fill={impact > 0 ? '#ffe09e' : '#f7869f'}
+                stroke="#ffebdf"
                 strokeWidth="5"
               />
               <circle
                 r={bumper.radius - 11}
-                fill="#edfff5"
-                stroke="#369e94"
+                fill="#fff7e4"
+                stroke="#d97091"
                 strokeWidth="3"
               />
-              <path
-                d="M-11 -3q5 -7 11 0t11 0M-11 6q5 -7 11 0t11 0"
-                fill="none"
-                stroke="#369e94"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
+              <path d="M-4 -12H7L0 -1H9L-7 13L-2 2H-10Z" fill="#d97091" />
             </g>
           );
         })}
@@ -422,7 +389,7 @@ export function RaceTrack({
         {GATE.centres.map((x, i) => (
           <g
             key={i}
-            transform={`translate(${frame?.gates[i] ?? x} ${GATE.y}) rotate(${(GATE.angles[i] * 180) / Math.PI})`}
+            transform={`translate(${frame?.gates[i] ?? x + pool.openings[i] * GATE.travel * (i === 0 ? -1 : 1)} ${GATE.y}) rotate(${(GATE.angles[i] * 180) / Math.PI})`}
           >
             <rect
               x={-GATE.width / 2}
@@ -458,7 +425,7 @@ export function RaceTrack({
           strokeWidth="5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity={pool?.phase === 'releasing' ? 0.9 : 0.18}
+          opacity=".9"
         />
       </g>
       <path d={`M83 ${FINISH_Y}H877`} stroke="url(#finish)" strokeWidth="29" />
@@ -475,9 +442,26 @@ export function RaceTrack({
         const x = state?.x ?? startX(slot, ducks.length),
           y = state?.y ?? 94;
         const winning = frame?.result?.slot === slot;
+        const kick = state?.kick;
+        const kickGlow =
+          kick && frame ? Math.max(0, 1 - (frame.elapsed - kick.at) / 0.65) : 0;
         return (
           <g key={duck.id} opacity={players.length ? 1 : 0.55}>
             <title>{duck.name || `Утка ${slot + 1}`}</title>
+            {kick && kickGlow > 0 && (
+              <g
+                transform={`translate(${x} ${y}) rotate(${(Math.atan2(kick.vy, kick.vx) * 180) / Math.PI})`}
+                opacity={kickGlow}
+                fill="none"
+                stroke={kick.vy < 0 ? '#d746ab' : '#fff2a5'}
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle r={35 + (1 - kickGlow) * 24} strokeWidth="3" />
+                <path d="M37 0H64M53 -11L66 0 53 11M-38 -12H-60M-38 12H-60" />
+              </g>
+            )}
             {state?.boosted && (
               <g
                 transform={`translate(${x} ${y}) rotate(${(Math.atan2(state.vy, state.vx) * 180) / Math.PI})`}
@@ -541,6 +525,29 @@ export function RaceTrack({
           </g>
         );
       })}
+      {eventFlash && (
+        <g transform={`translate(95 ${camera + 18})`}>
+          <rect
+            width="238"
+            height="40"
+            rx="20"
+            fill="#244960"
+            stroke="#fff0b0"
+            strokeWidth="3"
+          />
+          <text
+            x="119"
+            y="26"
+            textAnchor="middle"
+            fill="white"
+            fontSize="15"
+            fontWeight="900"
+            letterSpacing="1"
+          >
+            {frame.chaos.title}
+          </text>
+        </g>
+      )}
     </svg>
   );
 }

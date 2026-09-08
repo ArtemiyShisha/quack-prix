@@ -1,48 +1,24 @@
 import { POOL } from './track.ts';
-
 export type PoolState = {
-  phase: 'waiting' | 'filling' | 'releasing';
   age: number;
-  fill: number;
-  opening: number;
-  openSide: number | null;
+  openings: number[];
+  openSide: number;
   swirl: number;
   flowAngle: number;
 };
-const smooth = (t: number) => {
-  const x = Math.max(0, Math.min(1, t));
-  return x * x * (3 - 2 * x);
-};
 
-// One shared water cycle; identities and race positions are never inputs.
-export function wavePoolState(age: number | null, phase: number): PoolState {
-  const base = {
-    age: age ?? 0,
-    fill: 0,
-    opening: 0,
-    openSide: null,
-    swirl: Math.sin((age ?? 0) * 0.8 + phase),
-    flowAngle: 50 * (Math.cos(phase) - Math.cos((age ?? 0) * 0.8 + phase)),
-  };
-  if (age === null) return { ...base, phase: 'waiting' };
-  if (age < POOL.fillSeconds)
-    return { ...base, phase: 'filling', fill: age / POOL.fillSeconds };
-  const period = POOL.releaseSeconds + POOL.resetSeconds;
-  const elapsed = age - POOL.fillSeconds;
-  const cycle = Math.floor(elapsed / period);
-  const local = elapsed % period;
-  if (local >= POOL.releaseSeconds)
-    return {
-      ...base,
-      phase: 'filling',
-      fill: (local - POOL.releaseSeconds) / POOL.resetSeconds,
-    };
+// Both sluices stay partly open. There is no collecting or waiting phase.
+export function wavePoolState(age: number, phase: number): PoolState {
+  const wave = Math.sin((age * Math.PI * 2) / POOL.period + phase);
+  const openings = [
+    0.35 + 0.65 * (0.5 + 0.5 * wave),
+    0.35 + 0.65 * (0.5 - 0.5 * wave),
+  ];
   return {
-    ...base,
-    phase: 'releasing',
-    fill: 1 - local / POOL.releaseSeconds,
-    opening:
-      smooth(local / 0.35) * smooth((POOL.releaseSeconds - local) / 0.35),
-    openSide: (cycle + (phase >= Math.PI ? 1 : 0)) % 2,
+    age,
+    openings,
+    openSide: wave > 0 ? 0 : 1,
+    swirl: Math.sin(age * 2.3 + phase),
+    flowAngle: 80 * (Math.cos(phase) - Math.cos(age * 2.3 + phase)),
   };
 }

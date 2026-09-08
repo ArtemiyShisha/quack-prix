@@ -1,5 +1,6 @@
 export const WIDTH = 960;
 export const WALL_X = [56, 904];
+export const WALL_THICKNESS = 26;
 export const HEIGHT = 2400;
 export const VIEW_HEIGHT = 760;
 export const RADIUS = 23;
@@ -33,8 +34,9 @@ export const BUMPERS = [
   { x: 180, y: 627, radius: 30, travel: 24, period: 2.8 },
   { x: 480, y: 845, radius: 26, travel: 50, period: 3.2 },
   { x: 780, y: 627, radius: 30, travel: 24, period: 2.8 },
+  { x: 215, y: 1600, radius: 36, travel: 45, period: 1.9 },
+  { x: 745, y: 1600, radius: 36, travel: 45, period: 2.1 },
 ];
-export const CURRENT = { top: 900, bottom: 1430, drag: 0.042 };
 export const ROTORS = [
   { x: 759, y: 1110, length: 146, thickness: 20, direction: 1, blades: 2 },
   { x: 480, y: 2150, length: 134, thickness: 19, direction: -1, blades: 2 },
@@ -71,9 +73,7 @@ export const POOL = {
   bottom: 1765,
   x: 480,
   y: 1620,
-  fillSeconds: 6.5,
-  releaseSeconds: 2.4,
-  resetSeconds: 1.3,
+  period: 2.2,
 };
 export const RAILS = [
   { x1: 69, y1: 2070, x2: 370, y2: 2230 },
@@ -81,9 +81,9 @@ export const RAILS = [
 ];
 export const SECTIONS = [
   { y: 176, label: '01 / РАЗВИЛКА', name: 'Развилка' },
-  { y: 571, label: '02 / МЯГКИЙ СЛАЛОМ', name: 'Мягкий слалом' },
+  { y: 571, label: '02 / КРЯКО-ПИНБОЛ', name: 'Кряко-пинбол' },
   { y: 962, label: '03 / ТУРБО-КАСКАДЫ', name: 'Турбо-каскады' },
-  { y: 1430, label: '04 / ВОЛНОВОЙ БАССЕЙН', name: 'Волновой бассейн' },
+  { y: 1430, label: '04 / БЕШЕНЫЙ ВОДОВОРОТ', name: 'Бешеный водоворот' },
   { y: 1830, label: '05 / ПОСЛЕДНИЙ КАСКАД', name: 'Последний каскад' },
 ];
 export const HUES = [0, 115, 285, 170, 325, 58, 220, 35];

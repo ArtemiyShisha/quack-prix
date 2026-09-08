@@ -59,24 +59,28 @@ test('pinball contact produces an outward kick and a visible impact', () => {
   assert.ok(frame.ducks[0].vx > 0, 'contact must push the duck away');
   race.destroy();
 });
-test('a lone duck can leave the sluices without the emergency flush', () => {
-  const race = new RaceSimulation(1, 0);
-  const body = (race as unknown as { bodies: Matter.Body[] }).bodies[0];
-  Matter.Body.setPosition(body, { x: 110, y: 1420 });
-  Matter.Body.setVelocity(body, { x: 0, y: 0 });
-  let frame = race.snapshot();
-  while (!frame.result) frame = race.step();
-  assert.equal(
-    frame.flushing,
-    false,
-    'sloped sluices must carry a duck toward the opening',
-  );
-  assert.equal(frame.result.reason, 'finish');
-  assert.ok(
-    frame.elapsed < 22,
-    'the sluice must not hold a lone duck on a flat shelf',
-  );
-  race.destroy();
+test('a duck can pass the moving sluice gap immediately at different starting phases', () => {
+  for (let seed = 0; seed < 12; seed++) {
+    const race = new RaceSimulation(1, seed);
+    const body = (race as unknown as { bodies: Matter.Body[] }).bodies[0];
+    let frame = race.snapshot();
+    Matter.Body.setPosition(body, {
+      x: (frame.gates[0] + frame.gates[1]) / 2,
+      y: track.GATE.y - 60,
+    });
+    Matter.Body.setVelocity(body, { x: 0, y: 8 });
+    let passed = false;
+    for (let tick = 0; tick < 45; tick++) {
+      frame = race.step();
+      if (frame.ducks[0].y > track.GATE.y + 50) passed = true;
+    }
+    assert.ok(
+      passed,
+      `seed ${seed}: the open outlet must let a moving duck through without waiting`,
+    );
+    assert.equal(frame.flushing, false);
+    race.destroy();
+  }
 });
 test('the natural route reaches the pinball bumpers', () => {
   const race = new RaceSimulation(8, 0);
