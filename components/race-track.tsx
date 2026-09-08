@@ -7,6 +7,7 @@ import {
   BUMPERS,
   BOOSTS,
   GATE,
+  POOL,
   SECTIONS,
   HUES,
   COLOURS,
@@ -36,17 +37,35 @@ export function RaceTrack({
     ? 0
     : Math.max(0, Math.min(HEIGHT - VIEW_HEIGHT, leadY - 430));
   const ghost = frame?.flushing ? 0.15 : 1;
+  const pool = frame?.pool;
+  const poolFill = pool?.fill ?? 0;
+  const waveHeight = 65 + poolFill * 200;
+  const poolLabel =
+    pool?.phase === 'releasing'
+      ? 'ПОЕХАЛА ВОЛНА!'
+      : pool?.phase === 'filling'
+        ? 'ВОЛНА НАБИРАЕТ СИЛУ'
+        : 'ЗДЕСЬ ВСЁ МОЖЕТ ПОМЕНЯТЬСЯ';
   return (
     <svg
       className="race-svg"
       viewBox={`0 ${camera} 960 ${overview ? HEIGHT : VIEW_HEIGHT}`}
       role="img"
-      aria-label="Трасса с развилкой, подвижными бамперами, турбо-каскадами, шлюзами и финишной воронкой"
+      aria-label="Трасса с развилкой, пинболом, турбо-каскадами, волновым бассейном и последним каскадом"
       style={{ aspectRatio: '960/760' }}
     >
       <defs>
         <clipPath id="inside-pool">
           <rect x="69" width="822" height={HEIGHT} />
+        </clipPath>
+        <clipPath id="wave-basin">
+          <rect
+            x="95"
+            y={POOL.top - 12}
+            width="770"
+            height={POOL.bottom - POOL.top + 32}
+            rx="42"
+          />
         </clipPath>
         <pattern
           id="sluice-stripes"
@@ -119,6 +138,88 @@ export function RaceTrack({
           {label}
         </text>
       ))}
+      <g opacity={ghost}>
+        <rect
+          x="95"
+          y={POOL.top - 12}
+          width="770"
+          height={POOL.bottom - POOL.top + 32}
+          rx="42"
+          fill="#398ecc"
+          fillOpacity=".13"
+          stroke="#e2faff"
+          strokeWidth="4"
+          strokeDasharray="10 8"
+        />
+        <g clipPath="url(#wave-basin)">
+          <rect
+            x="95"
+            y={POOL.bottom + 20 - waveHeight}
+            width="770"
+            height={waveHeight}
+            fill="#2f9ed4"
+            opacity=".23"
+          />
+          <path
+            d={`M95 ${POOL.bottom + 20 - waveHeight}q48 -13 96 0t96 0t96 0t96 0t96 0t96 0t96 0t96 0`}
+            fill="none"
+            stroke="#e9fdff"
+            strokeWidth="5"
+            opacity=".8"
+          />
+          <g
+            transform={`translate(${POOL.x} ${POOL.y}) rotate(${pool?.flowAngle ?? 0})`}
+            fill="none"
+            stroke="#e9ffff"
+            strokeWidth="4"
+            opacity={pool?.phase === 'filling' ? 0.75 : 0.3}
+          >
+            {[65, 108, 150].map((radius) => (
+              <circle
+                key={radius}
+                r={radius}
+                strokeDasharray={`${radius * 1.4} ${radius * 0.7}`}
+              />
+            ))}
+            <path
+              d="M150 -18l10 18-18 -2M-108 18l-10 -18 18 2"
+              transform={`scale(1 ${pool && pool.swirl < 0 ? -1 : 1})`}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
+        </g>
+        <g transform="translate(480 1472)">
+          <rect
+            x="-168"
+            y="-19"
+            width="336"
+            height="30"
+            rx="15"
+            fill="#edfaff"
+          />
+          <text textAnchor="middle" y="1" className="pool-caption">
+            {poolLabel}
+          </text>
+          <rect
+            x="-106"
+            y="18"
+            width="212"
+            height="7"
+            rx="3.5"
+            fill="#328ac0"
+            opacity=".2"
+          />
+          <rect
+            x="-106"
+            y="18"
+            width={212 * poolFill}
+            height="7"
+            rx="3.5"
+            fill="#fbaf53"
+          />
+        </g>
+      </g>
       <g opacity={ghost}>
         {PEGS.map((peg, i) => (
           <g key={i}>
@@ -326,13 +427,14 @@ export function RaceTrack({
           </g>
         ))}
         <path
-          d="M455 1620l25 16 25-16M455 1638l25 16 25-16"
+          transform={`translate(${pool?.openSide === 0 ? 370 : pool?.openSide === 1 ? 590 : 480} ${GATE.y + 68})`}
+          d="M-18 0l18 12 18-12M-18 18l18 12 18-12"
           fill="none"
           stroke="#fff"
           strokeWidth="5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity=".6"
+          opacity={pool?.phase === 'releasing' ? 0.9 : 0.18}
         />
       </g>
       <path d={`M83 ${FINISH_Y}H877`} stroke="url(#finish)" strokeWidth="29" />

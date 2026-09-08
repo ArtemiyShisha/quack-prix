@@ -23,7 +23,7 @@ import {
   STORAGE_KEY,
   type Member,
 } from '@/lib/roster';
-import { HUES, FINISH_Y } from '@/lib/track';
+import { HUES, FINISH_Y, POOL } from '@/lib/track';
 import { FLUSH_SECONDS, MAX_SECONDS } from '@/lib/race';
 import { prepareSound, quack } from '@/lib/sound';
 import { useGameTools } from '@/hooks/use-game-tools';
@@ -123,9 +123,15 @@ export default function Home() {
         : frame?.flushing
           ? 'Большой смыв! Все заслонки открыты'
           : running
-            ? leader?.boosted
-              ? `${leaderMember?.name ?? 'Утка'} ловит турбо!`
-              : `${leaderMember?.name ?? 'Утка'} вырывается вперёд`
+            ? frame?.pool.phase !== 'waiting' &&
+              leader &&
+              leader.y < POOL.bottom + 50
+              ? frame?.pool.phase === 'releasing'
+                ? 'Пошла волна! Кто выскочит первым?'
+                : 'Стая собирается в волновом бассейне'
+              : leader?.boosted
+                ? `${leaderMember?.name ?? 'Утка'} ловит турбо!`
+                : `${leaderMember?.name ?? 'Утка'} вырывается вперёд`
             : 'Утки на старте';
   const elapsed = frame?.elapsed ?? 0;
   return (
@@ -214,8 +220,10 @@ export default function Home() {
             <p>
               Перед каждым заездом имена случайно распределяются по стартовым
               местам. Меняются начальные толчки, движение бамперов, шлюзов и
-              вертушек, а также всплески турбо. Все утки одинаковы по весу и
-              размеру — кто первым пересечёт финиш, тот и ведущий.
+              вертушек, а также всплески турбо. Перед финишем бассейн набирает
+              волну, перемешивает уток течением и выпускает их через
+              чередующиеся шлюзы. Все утки одинаковы по весу и размеру — кто
+              первым пересечёт финиш, тот и ведущий.
             </p>
             <p>
               Повторная победа возможна. Если заезд затянулся, на{' '}
@@ -318,7 +326,7 @@ export default function Home() {
           </div>
           <div className="race-footer">
             <span>
-              <Waves size={17} /> Развилка → пинбол → турбо → шлюзы
+              <Waves size={17} /> Развилка → пинбол → турбо → волна → финиш
             </span>
             <span>Около 30 секунд, как поплывёт</span>
           </div>

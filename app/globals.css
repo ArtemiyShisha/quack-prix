@@ -787,6 +787,12 @@ h2 {
   font-size: 16px;
   letter-spacing: 2px;
 }
+.pool-caption {
+  fill: #266483;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
 .duck-label {
   font-size: 17px;
 }

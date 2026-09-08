@@ -1,5 +1,6 @@
 import Matter from 'matter-js';
 import { seededRandom, shuffled } from './random.ts';
+import { wavePoolState, type PoolState } from './wave-pool.ts';
 import {
   RADIUS,
   FINISH_Y,
@@ -12,13 +13,14 @@ import {
   BUMPERS,
   BOOSTS,
   GATE,
+  POOL,
   startX,
 } from './track.ts';
 const { Engine, Bodies, Body, Composite } = Matter;
 export const STEP_MS = 1000 / 60;
 export const COUNTDOWN_SECONDS = 3;
-export const FLUSH_SECONDS = 40;
-export const MAX_SECONDS = 48;
+export const FLUSH_SECONDS = 50;
+export const MAX_SECONDS = 60;
 export type DuckState = {
   slot: number;
   x: number;
@@ -40,6 +42,7 @@ export type Frame = {
   bumpers: { x: number; y: number; hitAt: number }[];
   gates: number[];
   boostActive: boolean[];
+  pool: PoolState;
   flushing: boolean;
   result: Finish | null;
 };
@@ -100,6 +103,7 @@ export class RaceSimulation {
   private bumperCooldowns: number[][];
   private gates: Matter.Body[];
   private gatePhase: number;
+  private poolStartedAt: number | null = null;
   private boostPhases: number[];
   private boostedUntil: number[];
   private removable: Matter.Body[];
@@ -160,19 +164,13 @@ export class RaceSimulation {
     );
     this.gatePhase = random() * Math.PI * 2;
     this.gates = GATE.centres.map((x, i) =>
-      Bodies.rectangle(
-        x + Math.sin(this.gatePhase) * GATE.travel * (i === 0 ? 1 : -1),
-        GATE.y,
-        GATE.width,
-        GATE.thickness,
-        {
-          isStatic: true,
-          angle: GATE.angles[i],
-          friction: 0.008,
-          restitution: 0.6,
-          chamfer: { radius: 10 },
-        },
-      ),
+      Bodies.rectangle(x, GATE.y, GATE.width, GATE.thickness, {
+        isStatic: true,
+        angle: GATE.angles[i],
+        friction: 0.008,
+        restitution: 0.6,
+        chamfer: { radius: 10 },
+      }),
     );
     this.boostPhases = BOOSTS.map(() => random() * Math.PI * 2);
     this.boostedUntil = Array(count).fill(-1);
@@ -218,6 +216,14 @@ export class RaceSimulation {
       Math.sin((this.ticks / 60) * 3 + this.boostPhases[index]) > -0.2
     );
   }
+  private poolState(): PoolState {
+    return wavePoolState(
+      this.poolStartedAt === null
+        ? null
+        : (this.ticks - this.poolStartedAt) / 60,
+      this.gatePhase,
+    );
+  }
   snapshot(): Frame {
     return {
       elapsed: this.ticks / 60,
@@ -238,6 +244,7 @@ export class RaceSimulation {
       })),
       gates: this.gates.map((g) => g.position.x),
       boostActive: BOOSTS.map((_, i) => this.jetActive(i)),
+      pool: this.poolState(),
       flushing: this.flushing,
       result: this.result,
     };
@@ -246,6 +253,12 @@ export class RaceSimulation {
     if (this.result) return this.snapshot();
     const before = this.snapshot().ducks;
     this.ticks++;
+    if (
+      this.poolStartedAt === null &&
+      this.bodies.some((body) => body.position.y >= POOL.triggerY)
+    )
+      this.poolStartedAt = this.ticks;
+    const pool = this.poolState();
     if (this.ticks >= FLUSH_SECONDS * 60 && !this.flushing) {
       this.flushing = true;
       Composite.remove(this.engine.world, this.removable);
@@ -280,11 +293,9 @@ export class RaceSimulation {
         moveStatic(
           body,
           GATE.centres[i] +
-            Math.sin(
-              this.gatePhase + ((this.ticks / 60) * 2 * Math.PI) / GATE.period,
-            ) *
+            (pool.openSide === i ? pool.opening : 0) *
               GATE.travel *
-              (i === 0 ? 1 : -1),
+              (i === 0 ? -1 : 1),
           GATE.y,
         ),
       );
@@ -292,6 +303,27 @@ export class RaceSimulation {
     this.bodies.forEach((body, slot) => {
       const wind = Math.sin((this.ticks / 60) * 1.8) * 0.000009;
       Body.applyForce(body, body.position, { x: wind * body.mass, y: 0 });
+      if (
+        !this.flushing &&
+        body.position.y > POOL.top &&
+        body.position.y < POOL.bottom
+      ) {
+        const dx = body.position.x - POOL.x,
+          dy = body.position.y - POOL.y;
+        const radius = Math.max(100, Math.hypot(dx, dy));
+        const releasing = pool.phase === 'releasing' && pool.opening > 0.2;
+        const outlet = pool.openSide === 0 ? 370 : 590;
+        const force = releasing
+          ? { x: (outlet - body.position.x) * 0.000003, y: 0.0002 }
+          : {
+              x: (-dy / radius) * pool.swirl * 0.0007 - dx * 0.0000008,
+              y: (dx / radius) * pool.swirl * 0.0007 - 0.00055,
+            };
+        Body.applyForce(body, body.position, {
+          x: force.x * body.mass,
+          y: force.y * body.mass,
+        });
+      }
       if (!this.flushing)
         BOOSTS.forEach((boost, i) => {
           if (!this.jetActive(i)) return;
