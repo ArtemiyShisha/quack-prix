@@ -25,7 +25,7 @@ import {
   STORAGE_KEY,
   type Member,
 } from '@/lib/roster';
-import { HUES, FINISH_DISTANCE } from '@/lib/track';
+import { COLOURS, HUES, FINISH_DISTANCE } from '@/lib/track';
 import { FLUSH_SECONDS, MAX_SECONDS } from '@/lib/race';
 import { prepareSound, quack } from '@/lib/sound';
 import { useGameTools } from '@/hooks/use-game-tools';
@@ -178,8 +178,18 @@ export function DuckGame({
                 className={`roster-row ${!member.active ? 'absent' : ''} ${winner?.id === member.id ? 'winner-row' : ''}`}
                 key={member.id}
               >
-                <span className={`duck-avatar duck-${index}`}>
-                  <img src="/duck.png" alt="" />
+                <span
+                  className={
+                    is3d ? 'marble-swatch' : `duck-avatar duck-${index}`
+                  }
+                  style={
+                    is3d
+                      ? { backgroundColor: COLOURS[member.id % 8] }
+                      : undefined
+                  }
+                  aria-hidden="true"
+                >
+                  {!is3d && <img src="/duck.png" alt="" />}
                 </span>
                 <Input
                   aria-label={`Участник ${index + 1}`}
@@ -352,7 +362,7 @@ export function DuckGame({
               </div>
             )}
             {winner && result && (
-              <div className="winner-overlay">
+              <div className={is3d ? 'marble-result' : 'winner-overlay'}>
                 <div className="winner-card" role="status">
                   <span className="winner-kicker">КРЯ! У НАС ЕСТЬ ВЕДУЩИЙ</span>
                   <img
@@ -384,7 +394,7 @@ export function DuckGame({
             <span>
               <Waves size={17} />{' '}
               {is3d
-                ? 'Серпантин, остров, воронка. Кря!'
+                ? 'Слалом, остров, волны, виражи, воронка. Кря!'
                 : 'Виражи, развилки, качели. Один финиш.'}
             </span>
             <span>

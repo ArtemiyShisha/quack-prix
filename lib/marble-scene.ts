@@ -1,5 +1,10 @@
 import * as THREE from 'three';
-import { placeMarbleLabels, type LabelAnchor } from './marble-label-layout';
+import {
+  CAMERA_FOV,
+  overviewCamera,
+  finaleCamera,
+  followCamera,
+} from './marble-camera';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   TRACK_MESHES,
@@ -11,15 +16,17 @@ import {
   MARBLE_FINISH_Z,
   mainCentre,
   marbleStart,
+  RUNOUT_START,
+  runoutCentre,
 } from './marble-track';
-import { COLOURS, HUES } from './track';
+import { COLOURS } from './track';
 import type { MarbleFrame } from './marble-race';
 import type { Member } from './roster';
 
 export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#dceaf2');
-  scene.fog = new THREE.Fog('#dceaf2', 100, 240);
+  scene.fog = new THREE.Fog('#dceaf2', 220, 580);
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: false,
@@ -27,7 +34,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.3;
@@ -36,28 +43,28 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     'Объёмная трасса с катящимися шариками',
   );
   host.appendChild(renderer.domElement);
-  const camera = new THREE.PerspectiveCamera(43, 1, 0.1, 350);
+  const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 650);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.minDistance = 18;
-  controls.maxDistance = 180;
+  controls.maxDistance = 420;
   controls.maxPolarAngle = Math.PI * 0.47;
   controls.enabled = false;
   const light = new THREE.DirectionalLight('#fff4df', 3.2);
-  light.position.set(-20, 60, 32);
+  light.position.set(-20, 85, 65);
   light.castShadow = true;
   light.shadow.mapSize.set(2048, 2048);
   Object.assign(light.shadow.camera, {
     left: -40,
     right: 40,
-    top: 75,
-    bottom: -60,
+    top: 100,
+    bottom: -90,
     near: 0.5,
-    far: 150,
+    far: 220,
   });
   light.shadow.bias = -0.0005;
-  light.target.position.set(0, 6, 42);
+  light.target.position.set(0, 15, 66);
   scene.add(
     light,
     light.target,
@@ -67,8 +74,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
   fill.position.set(30, 25, -20);
   scene.add(fill);
   const geometries: THREE.BufferGeometry[] = [],
-    materials: THREE.Material[] = [],
-    textures: THREE.Texture[] = [];
+    materials: THREE.Material[] = [];
   const material = (colour: string, roughness = 0.38) => {
     const m = new THREE.MeshStandardMaterial({
       color: colour,
@@ -106,7 +112,15 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     );
     g.setIndex(part.indices);
     g.computeVertexNormals();
-    mesh(g, material(part.colour));
+    const surface = material(part.colour);
+    if (part.opacity !== undefined) {
+      surface.transparent = true;
+      surface.opacity = part.opacity;
+      surface.depthWrite = false;
+      surface.roughness = 0.2;
+    }
+    const trackPart = mesh(g, surface);
+    if (part.opacity !== undefined) trackPart.castShadow = false;
     for (const edge of part.edges) {
       const curve = new THREE.CatmullRomCurve3(
         edge.map((p) => new THREE.Vector3(p.x, p.y + 0.05, p.z)),
@@ -135,7 +149,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
   const grid = new THREE.GridHelper(240, 60, '#adcbdc', '#b9d3e2');
   grid.position.set(0, -3.99, 40);
   scene.add(grid);
-  for (const z of [0, 12, 24, 37, 50, 63, 73]) {
+  for (const z of [0, 12, 24, 37, 50, 62, 74, 87, 99]) {
     const p = mainCentre(z),
       h = p.y + 4;
     for (const side of [-1, 1]) {
@@ -161,8 +175,8 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
       z = FUNNEL.z + Math.sin(angle) * 7;
     mesh(new THREE.CylinderGeometry(0.34, 0.5, 10, 12), support, x, 1, z);
   }
-  mesh(new THREE.BoxGeometry(8, 4, 0.3), white, 0, 33.4, -5);
-  mesh(new THREE.BoxGeometry(7, 1.2, 0.3), white, FUNNEL.x, 2.1, 76);
+  mesh(new THREE.BoxGeometry(8, 4, 0.3), white, 0, mainCentre(-5).y + 2, -5);
+  mesh(new THREE.BoxGeometry(7, 1.2, 0.3), white, FUNNEL.x, 2.1, RUNOUT_START);
   const bumperMeshes = BUMPERS.map((b) => [
     mesh(
       new THREE.CylinderGeometry(b.radius, b.radius, 1.8, 24),
@@ -220,7 +234,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     gate.z,
   );
   // The finish surface and arch share the physical crossing coordinate.
-  const finishY = 1.6 - 0.075 * (MARBLE_FINISH_Z - 76) + 0.025;
+  const finishY = runoutCentre(MARBLE_FINISH_Z).y + 0.025;
   for (let i = 0; i < 8; i++)
     for (let j = 0; j < 2; j++)
       mesh(
@@ -245,19 +259,8 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     finishY + 3.7,
     MARBLE_FINISH_Z,
   );
-  const labelLayer = document.createElement('div');
-  labelLayer.className = 'marble-labels';
-  labelLayer.setAttribute('aria-hidden', 'true');
-  host.appendChild(labelLayer);
-  const stems = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  stems.classList.add('marble-label-stems');
-  labelLayer.appendChild(stems);
   type Ball = {
     mesh: THREE.Mesh;
-    label: HTMLDivElement;
-    stem: SVGLineElement;
-    member: Member;
-    texture: THREE.CanvasTexture;
     material: THREE.MeshPhysicalMaterial;
   };
   let balls: Ball[] = [],
@@ -270,10 +273,8 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     request = 0;
   const sphere = new THREE.SphereGeometry(MARBLE_RADIUS, 32, 24);
   geometries.push(sphere);
-  const focus = new THREE.Vector3(0, 30, 3),
-    target = new THREE.Vector3(),
-    desiredCamera = new THREE.Vector3(),
-    projected = new THREE.Vector3(),
+  const initial = followCamera(0, 1);
+  const focus = initial.target.clone(),
     position = new THREE.Vector3(),
     rotation = new THREE.Quaternion();
   function setMembers(list: Member[]) {
@@ -283,34 +284,10 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     for (const b of balls) {
       scene.remove(b.mesh);
       b.material.dispose();
-      b.texture.dispose();
-      b.label.remove();
-      b.stem.remove();
     }
     balls = list.map((member, slot) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 256;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = COLOURS[member.id % 8];
-      ctx.fillRect(0, 0, 512, 256);
-      ctx.fillStyle = '#ffefda';
-      ctx.fillRect(0, 104, 512, 48);
-      ctx.font = 'bold 64px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      for (const x of [128, 384]) {
-        ctx.beginPath();
-        ctx.arc(x, 128, 39, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff8e9';
-        ctx.fill();
-        ctx.fillStyle = COLOURS[member.id % 8];
-        ctx.fillText(String(member.id + 1), x, 130);
-      }
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
       const mat = new THREE.MeshPhysicalMaterial({
-        map: texture,
+        color: COLOURS[member.id % 8],
         roughness: 0.19,
         metalness: 0.12,
         clearcoat: 1,
@@ -322,35 +299,20 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
       const p = marbleStart(slot, list.length);
       object.position.set(p.x, p.y, p.z);
       scene.add(object);
-      const label = document.createElement('div');
-      label.className = 'marble-name';
-      label.style.borderColor = COLOURS[member.id % 8];
-      const img = document.createElement('img');
-      img.src = '/duck.png';
-      img.alt = '';
-      img.style.filter = `hue-rotate(${HUES[member.id % 8]}deg)`;
-      label.appendChild(img);
-      const name = document.createElement('span');
-      name.textContent = member.name || String(member.id + 1);
-      label.appendChild(name);
-      labelLayer.appendChild(label);
-      const stem = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'line',
-      );
-      stem.setAttribute('stroke', COLOURS[member.id % 8]);
-      stem.setAttribute('stroke-width', '1.5');
-      stem.setAttribute('opacity', '.65');
-      stems.appendChild(stem);
-      return { mesh: object, label, stem, member, texture, material: mat };
+      return { mesh: object, material: mat };
     });
   }
+  let wholePose = overviewCamera(1),
+    finalPose = finaleCamera(1);
   function resize() {
     const { width, height } = host.getBoundingClientRect();
     if (!width || !height) return;
     renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    wholePose = overviewCamera(camera.aspect);
+    finalPose = finaleCamera(camera.aspect);
+    lastOverview = null;
   }
   const observer = new ResizeObserver(resize);
   observer.observe(host);
@@ -390,69 +352,30 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
         m.position.x = frame?.bumperX[i] ?? BUMPERS[i].x;
       }),
     );
-    const ranked = frame
-      ? [...frame.marbles].sort((a, b) => b.progress - a.progress)
-      : [];
-    const leader = ranked[0];
-    if (leader) {
-      if (leader.stage === 1) target.set(FUNNEL.x, 6, FUNNEL.z);
-      else target.set(leader.x, leader.y, leader.z + 4);
-    } else target.set(0, 30, 3);
-    focus.lerp(target, 0.045);
+    const leader = frame?.marbles.reduce((a, b) =>
+      a.progress > b.progress ? a : b,
+    );
+    const inFinale = leader && (leader.stage > 0 || leader.z >= FUNNEL.z - 12);
+    const pose = overview
+      ? wholePose
+      : inFinale
+        ? finalPose
+        : followCamera(leader?.z ?? 0, camera.aspect);
     if (lastOverview !== overview) {
       lastOverview = overview;
       controls.enabled = overview;
-      if (overview) {
-        camera.position.set(92, 110, -30);
-        controls.target.set(2, 9, 47);
-      } else {
-        camera.position.copy(focus).add(new THREE.Vector3(19, 23, -25));
-        controls.target.copy(focus);
-      }
+      camera.position.copy(pose.position);
+      focus.copy(pose.target);
+      controls.target.copy(pose.target);
+      camera.lookAt(focus);
     }
     if (overview) controls.update();
     else {
-      desiredCamera.copy(focus).add(new THREE.Vector3(19, 23, -25));
-      camera.position.lerp(desiredCamera, 0.07);
+      camera.position.lerp(pose.position, 0.09);
+      focus.lerp(pose.target, 0.09);
       camera.lookAt(focus);
     }
     renderer.render(scene, camera);
-    const width = host.clientWidth,
-      height = host.clientHeight;
-    const anchors: LabelAnchor[] = [];
-    balls.forEach((b, slot) => {
-      projected.copy(b.mesh.position);
-      projected.y += 1.15;
-      projected.project(camera);
-      const visible =
-        projected.z > -1 &&
-        projected.z < 1 &&
-        Math.abs(projected.x) < 1 &&
-        Math.abs(projected.y) < 1;
-      b.label.hidden = !visible;
-      b.stem.style.display = 'none';
-      if (!visible) return;
-      anchors.push({
-        slot,
-        x: (projected.x * 0.5 + 0.5) * width,
-        y: (-projected.y * 0.5 + 0.5) * height,
-        width: b.label.offsetWidth,
-        height: b.label.offsetHeight,
-      });
-    });
-    const placements = placeMarbleLabels(anchors, width, height);
-    for (const anchor of anchors) {
-      const b = balls[anchor.slot],
-        box = placements.find((p) => p.slot === anchor.slot);
-      b.label.hidden = !box;
-      if (!box) continue;
-      b.label.style.transform = `translate(${box.x}px,${box.y}px)`;
-      b.stem.style.display = '';
-      b.stem.setAttribute('x1', String(anchor.x));
-      b.stem.setAttribute('y1', String(anchor.y + 8));
-      b.stem.setAttribute('x2', String(box.x + box.width / 2));
-      b.stem.setAttribute('y2', String(box.y + box.height));
-    }
   }
   draw();
   return {
@@ -469,16 +392,13 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
       renderer.domElement.removeEventListener('webglcontextlost', loss);
       for (const b of balls) {
         b.material.dispose();
-        b.texture.dispose();
       }
       for (const g of geometries) g.dispose();
       for (const m of materials) m.dispose();
-      for (const t of textures) t.dispose();
       grid.geometry.dispose();
       (grid.material as THREE.Material).dispose();
       renderer.dispose();
       renderer.domElement.remove();
-      labelLayer.remove();
     },
   };
 }

@@ -25,6 +25,9 @@ import {
   ISLAND_3D,
   PADDLE_3D,
   marbleStart,
+  mainCentre,
+  RUNOUT_START,
+  runoutCentre,
 } from './marble-track.ts';
 export type MarbleState = {
   slot: number;
@@ -59,7 +62,7 @@ export class MarbleSimulation {
       throw new Error('Race needs 1–8 marbles');
     const random = seededRandom(seed);
     this.world = new World({
-      gravity: new Vec3(0, -16, 0),
+      gravity: new Vec3(0, -22, 0),
       allowSleep: false,
     });
     this.world.broadphase = new SAPBroadphase(this.world);
@@ -94,8 +97,8 @@ export class MarbleSimulation {
       this.world.addBody(body);
       return body;
     };
-    add(new Box(new Vec3(4, 2, 0.15)), 0, 33.4, -5);
-    add(new Box(new Vec3(3.5, 0.6, 0.15)), FUNNEL.x, 2.1, 76);
+    add(new Box(new Vec3(4, 2, 0.15)), 0, mainCentre(-5).y + 2, -5);
+    add(new Box(new Vec3(3.5, 0.6, 0.15)), FUNNEL.x, 2.1, RUNOUT_START);
     this.phase = random() * Math.PI * 2;
     this.bumpers = BUMPERS.map((b, i) => {
       const body = add(
@@ -190,7 +193,7 @@ export class MarbleSimulation {
             ),
           )
       );
-    return Math.max(0, Math.min(2599, ((p.z + 3) / 83) * 2600));
+    return Math.max(0, Math.min(2599, ((p.z + 3) / (FUNNEL.z + 3)) * 2600));
   }
   snapshot(): MarbleFrame {
     const marbles = this.bodies.map((b, slot) => ({
@@ -258,7 +261,7 @@ export class MarbleSimulation {
           r = Math.hypot(p.x - FUNNEL.x, p.z - FUNNEL.z);
         if (
           this.stages[slot] === 0 &&
-          p.z > 76 &&
+          p.z > RUNOUT_START &&
           p.y < 7.1 &&
           r < FUNNEL.radius
         )
@@ -281,8 +284,8 @@ export class MarbleSimulation {
           // Only the marked finish opening counts; a falling body beside the chute cannot win.
           if (
             Math.abs(x - FUNNEL.x) <= 2.2 + MARBLE_RADIUS &&
-            y >= -0.5 &&
-            y <= 3.5
+            y >= runoutCentre(MARBLE_FINISH_Z).y - 0.5 &&
+            y <= runoutCentre(MARBLE_FINISH_Z).y + 3.5
           )
             crossings.push({ slot, fraction });
         }

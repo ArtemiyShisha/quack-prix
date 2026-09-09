@@ -944,43 +944,6 @@ h2 {
   height: 100%;
   touch-action: none;
 }
-.marble-labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.marble-name {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  white-space: nowrap;
-  background: #fffefaee;
-  border: 2px solid;
-  border-radius: 18px;
-  padding: 1px 10px 1px 2px;
-  font-size: 14px;
-  font-weight: 750;
-  color: #24475a;
-  box-shadow: 0 3px 6px #23475c1c;
-  will-change: transform;
-}
-.marble-name[hidden] {
-  display: none;
-}
-.marble-name img {
-  width: 29px;
-  height: 29px;
-  object-fit: contain;
-}
-.marble-name span {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .marble-camera-hint {
   position: absolute;
   bottom: 15px;
@@ -1030,13 +993,75 @@ h2 {
     white-space: normal;
     text-align: center;
   }
-  .marble-name {
-    font-size: 12px;
-    padding-right: 7px;
+}
+
+.marble-swatch {
+  width: 31px;
+  height: 31px;
+  margin: 3px;
+  flex: 0 0 31px;
+  border-radius: 50%;
+  box-shadow:
+    inset -5px -6px 8px #0003,
+    inset 4px 4px 6px #fff9;
+}
+.marble-result {
+  background: #fffdf5;
+  border-top: 1px solid #d7e3e7;
+  padding: 18px 22px;
+}
+.marble-result .winner-card {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  column-gap: 16px;
+  align-items: center;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+}
+.marble-result .winner-card > img {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  width: 56px;
+  height: 64px;
+  margin: 0;
+}
+.marble-result .winner-kicker {
+  grid-column: 2;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.marble-result h3 {
+  grid-column: 2;
+  font-size: 25px;
+}
+.marble-result .winner-card p {
+  display: none;
+}
+.marble-result .winner-time {
+  grid-column: 2;
+  font-size: 12px;
+}
+.marble-result .winner-again {
+  grid-column: 3;
+  grid-row: 1 / 4;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .marble-result .winner-card {
+    grid-template-columns: 44px 1fr;
+    gap: 4px 12px;
   }
-  .marble-name img {
-    width: 23px;
-    height: 23px;
+  .marble-result .winner-card > img {
+    width: 44px;
+  }
+  .marble-result .winner-again {
+    grid-column: 1 / 3;
+    grid-row: 4;
+    margin-top: 8px;
   }
 }
-.marble-label-stems {position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;}

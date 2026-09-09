@@ -3,13 +3,20 @@ export type TrackMesh = {
   positions: number[];
   indices: number[];
   colour: string;
+  opacity?: number;
   edges: Point3[][];
 };
 export const MARBLE_RADIUS = 0.48;
-export const MARBLE_FINISH_Z = 98;
+export const MARBLE_FINISH_Z = 134;
 export const MARBLE_MAX_SECONDS = 75;
 export const PADDLE_SPEED = 1.1;
-export const FUNNEL = { x: 6.4, z: 80, radius: 9.5, hole: 1.25, bottom: 3.4 };
+export const FUNNEL = { x: 6.4, z: 106, radius: 9.5, hole: 1.25, bottom: 3.4 };
+export const RUNOUT_START = FUNNEL.z - 4;
+export const runoutCentre = (z: number): Point3 => ({
+  x: FUNNEL.x,
+  y: 1.6 - 0.05 * (z - RUNOUT_START),
+  z,
+});
 const anchors = [
   [-5, 0],
   [0, 0],
@@ -17,26 +24,28 @@ const anchors = [
   [24, 7],
   [37, 0],
   [50, -7],
-  [63, 4],
-  [80, 12.8],
+  [62, -2],
+  [74, 7],
+  [87, -5],
+  [106, 12.8],
 ];
 const smooth = (t: number) => t * t * (3 - 2 * t);
 export function mainCentre(z: number): Point3 {
-  const i = Math.max(
-    1,
-    anchors.findIndex((p) => p[0] >= z),
-  );
+  const found = anchors.findIndex((p) => p[0] >= z);
+  const i = found < 0 ? anchors.length - 1 : Math.max(1, found);
   const a = anchors[i - 1],
     b = anchors[i],
     t = Math.max(0, Math.min(1, (z - a[0]) / (b[0] - a[0])));
-  return { x: a[1] + (b[1] - a[1]) * smooth(t), y: 30 - 0.29 * z, z };
+  const wave =
+    z > 58 && z < 82 ? 0.28 * Math.sin((Math.PI * (z - 58)) / 6) ** 2 : 0;
+  return { x: a[1] + (b[1] - a[1]) * smooth(t), y: 45 - 0.36 * z + wave, z };
 }
 export function mainWidth(z: number) {
   const wide = Math.max(0, Math.min(1, (z - 27) / 6, (47 - z) / 6));
   return (
     3.4 +
     1.9 * smooth(wide) -
-    1.2 * smooth(Math.max(0, Math.min(1, (z - 70) / 10)))
+    1.2 * smooth(Math.max(0, Math.min(1, (z - (FUNNEL.z - 10)) / 10)))
   );
 }
 export function troughHeight(u: number) {
@@ -132,20 +141,44 @@ function funnel(): TrackMesh {
       indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
     }
   }
-  return { positions, indices, colour: '#ffc76c', edges };
+  return { positions, indices, colour: '#ffc76c', opacity: 0.38, edges };
 }
-export const TRACK_MESHES: TrackMesh[] = [
+const mainSections: TrackMesh[] = [
   trough(-5, 17, mainCentre, mainWidth, '#76d7d7'),
   trough(17, 30, mainCentre, mainWidth, '#79b9ee'),
   trough(30, 47, mainCentre, mainWidth, '#b6a4e9'),
-  trough(47, 66, mainCentre, mainWidth, '#76d7d7'),
-  trough(66, 80, mainCentre, mainWidth, '#79b9ee'),
+  trough(47, 58, mainCentre, mainWidth, '#76d7d7'),
+  trough(58, 82, mainCentre, mainWidth, '#efb57e'),
+  trough(82, 96, mainCentre, mainWidth, '#a4ce95'),
+  trough(96, FUNNEL.z, mainCentre, mainWidth, '#79b9ee'),
+];
+// Clear side guards catch bank launches on the faster wave/turn section.
+// They are real collision surfaces, with the same shape used for rendering.
+function guards(section: TrackMesh): TrackMesh {
+  const positions: number[] = [],
+    indices: number[] = [];
+  for (const edge of section.edges) {
+    const start = positions.length / 3;
+    edge.forEach((p, i) => {
+      positions.push(p.x, p.y, p.z, p.x, p.y + 3, p.z);
+      if (i < edge.length - 1) {
+        const a = start + i * 2;
+        indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+      }
+    });
+  }
+  return { positions, indices, colour: '#b8e6ed', opacity: 0.18, edges: [] };
+}
+export const TRACK_MESHES: TrackMesh[] = [
+  ...mainSections,
+  ...mainSections.slice(3).map(guards),
   funnel(),
   trough(
-    76,
-    103,
-    (z) => ({ x: FUNNEL.x, y: 1.6 - 0.075 * (z - 76), z }),
-    (z) => 3.5 - 1.3 * smooth(Math.max(0, Math.min(1, (z - 84) / 8))),
+    RUNOUT_START,
+    MARBLE_FINISH_Z + 5,
+    runoutCentre,
+    (z) =>
+      3.5 - 1.3 * smooth(Math.max(0, Math.min(1, (z - (FUNNEL.z + 4)) / 8))),
     '#ef9988',
     0.28,
   ),

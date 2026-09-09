@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MarbleSimulation } from '../lib/marble-race.ts';
+import { FUNNEL, MARBLE_FINISH_Z } from '../lib/marble-track.ts';
 void test('marbles roll and descend in three dimensions under gravity', () => {
   const race = new MarbleSimulation(4, 18);
   const first = race.snapshot();
@@ -33,13 +34,17 @@ void test('the marked finish rejects bypasses and compares physical crossing tim
     stages: number[];
   };
   internal.bodies.forEach((body, i) => {
-    body.position.set(6.4 + (i ? 1 : -1), 1, 98 - (i ? 0.02 : 0.06));
+    body.position.set(
+      FUNNEL.x + (i ? 1 : -1),
+      1,
+      MARBLE_FINISH_Z - (i ? 0.02 : 0.06),
+    );
     body.velocity.set(0, 0, 12);
   });
   assert.equal(r.step().result, null, 'skipping the funnel cannot win');
   internal.stages.fill(2);
   internal.bodies.forEach((body, i) => {
-    body.position.set(16, 1, 97.94);
+    body.position.set(FUNNEL.x + 10, 1, MARBLE_FINISH_Z - 0.06);
     body.velocity.set(0, 0, 12);
   });
   assert.equal(
@@ -48,7 +53,11 @@ void test('the marked finish rejects bypasses and compares physical crossing tim
     'a crossing outside the finish opening cannot win',
   );
   internal.bodies.forEach((body, i) => {
-    body.position.set(6.4 + (i ? 1 : -1), 1, 98 - (i ? 0.02 : 0.06));
+    body.position.set(
+      FUNNEL.x + (i ? 1 : -1),
+      1,
+      MARBLE_FINISH_Z - (i ? 0.02 : 0.06),
+    );
     body.velocity.set(0, 0, 12);
   });
   const f = r.step();
@@ -66,11 +75,24 @@ void test('only a marble fully below the funnel outlet enters the finish chute s
     };
   internal.stages[0] = 1;
   const body = internal.bodies[0];
-  body.position.set(6.4, 3.25, 80);
+  body.position.set(FUNNEL.x, 3.25, FUNNEL.z);
   body.velocity.set(0, 0, 0);
   assert.equal(r.step().marbles[0].stage, 1);
-  body.position.set(6.4, 2.8, 80);
+  body.position.set(FUNNEL.x, 2.8, FUNNEL.z);
   body.velocity.set(0, -1, 0);
   assert.equal(r.step().marbles[0].stage, 2);
   r.destroy();
+});
+
+void test('wave-section banks retain fast marbles through the new reversing bend', () => {
+  const race = new MarbleSimulation(3, 210);
+  let frame = race.snapshot();
+  while (frame.elapsed < 19) {
+    frame = race.step();
+    assert.ok(
+      frame.marbles.every((p) => p.y > -2 && Math.abs(p.x) < 30),
+      `escape at ${frame.elapsed}`,
+    );
+  }
+  race.destroy();
 });
