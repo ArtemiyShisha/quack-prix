@@ -9,7 +9,11 @@ Both games run entirely in the browser. GitHub Pages receives a Vite production 
 - [x] Add `vite.pages.config.ts`, `pages-entry.tsx`, `index.html`, `scripts/prepare-pages.mjs`, and the shared `appUrl` helper.
 - [x] Build static output and verify both routes and the duck image over HTTP; both games initialize without console errors in the browser.
 - [x] Create private `ArtemiyShisha/quack-prix` and public build-only `ArtemiyShisha/quack-prix-play` repositories.
-- [ ] Publish the distributable files on GitHub Pages and verify a complete race at the public URL.
-- [ ] Commit and push source, synchronize the original checkout, and hand off the live URL.
+- [x] Publish the distributable files on GitHub Pages and verify a complete race at the public URL.
+- [x] Commit and push source and synchronize the original checkout.
+
+Verification: GitHub Pages reports `built` with HTTPS enabled. Both HTML pages, the duck sprite, CSS, main JavaScript, and the lazy-loaded 3D JavaScript return HTTP 200 and match the validated files byte-for-byte. The published 3D mode completed a four-player race naturally in 33.2 seconds and showed a winner, with no browser console errors.
+
+Live game: https://artemiyshisha.github.io/quack-prix-play/3d/
 
 The prepared Node/Docker configuration remains available as an optional hosting target. Railway publication was cancelled at the user's request after Railway login proved unavailable. No Railway project or paid service was created.
