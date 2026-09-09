@@ -18,6 +18,13 @@ import {
   marbleStart,
   RUNOUT_START,
   runoutCentre,
+  PEGS,
+  FINISH_GATE,
+  SHORTCUT_ENTRY,
+  troughHeight,
+  mainWidth,
+  shortcutCentre,
+  shortcutWidth,
 } from './marble-track';
 import { COLOURS } from './track';
 import type { MarbleFrame } from './marble-race';
@@ -152,23 +159,33 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
   for (const z of [0, 12, 24, 37, 50, 62, 74, 87, 99]) {
     const p = mainCentre(z),
       h = p.y + 4;
-    for (const side of [-1, 1]) {
+    const lower = z >= 33 && z <= 82 ? shortcutCentre(z) : p;
+    const lowerWidth = z >= 33 && z <= 82 ? shortcutWidth(z) : mainWidth(z);
+    const left = Math.min(p.x - mainWidth(z), lower.x - lowerWidth) - 0.8;
+    const right = Math.max(p.x + mainWidth(z), lower.x + lowerWidth) + 0.8;
+    for (const legX of [left, right]) {
       mesh(
         new THREE.CylinderGeometry(0.28, 0.42, h, 10),
         support,
-        p.x + side * 2,
+        legX,
         p.y - h / 2,
         z,
       );
       mesh(
         new THREE.CylinderGeometry(0.85, 0.85, 0.22, 16),
         white,
-        p.x + side * 2,
+        legX,
         -3.85,
         z,
       );
     }
-    mesh(new THREE.BoxGeometry(4.8, 0.3, 0.5), white, p.x, p.y - 0.35, z);
+    mesh(
+      new THREE.BoxGeometry(right - left, 0.3, 0.5),
+      white,
+      (left + right) / 2,
+      lower.y - 0.35,
+      z,
+    );
   }
   for (const angle of [0, Math.PI * 0.66, Math.PI * 1.33]) {
     const x = FUNNEL.x + Math.cos(angle) * 7,
@@ -232,6 +249,68 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     gate.x,
     gate.y + gate.height / 2,
     gate.z,
+  );
+  for (const peg of PEGS) {
+    mesh(
+      new THREE.CylinderGeometry(peg.radius, peg.radius, peg.height, 20),
+      peach,
+      peg.x,
+      peg.y + peg.height / 2,
+      peg.z,
+    );
+    mesh(
+      new THREE.CylinderGeometry(peg.radius * 0.8, peg.radius * 0.8, 0.12, 16),
+      white,
+      peg.x,
+      peg.y + peg.height + 0.04,
+      peg.z,
+    );
+  }
+  const rim: THREE.Vector3[] = [];
+  const entry = SHORTCUT_ENTRY;
+  for (const [x, z] of [
+    [entry.x - entry.halfWidth, entry.z - entry.halfLength],
+    [entry.x + entry.halfWidth, entry.z - entry.halfLength],
+    [entry.x + entry.halfWidth, entry.z + entry.halfLength],
+    [entry.x - entry.halfWidth, entry.z + entry.halfLength],
+    [entry.x - entry.halfWidth, entry.z - entry.halfLength],
+  ])
+    rim.push(
+      new THREE.Vector3(
+        x,
+        mainCentre(z).y +
+          troughHeight((x - mainCentre(z).x) / mainWidth(z)) +
+          0.07,
+        z,
+      ),
+    );
+  mesh(
+    new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3(rim, false, 'centripetal'),
+      48,
+      0.1,
+      6,
+      false,
+    ),
+    material('#29bba1'),
+  );
+  const finaleGate = mesh(
+    new THREE.BoxGeometry(
+      FINISH_GATE.length,
+      FINISH_GATE.height,
+      FINISH_GATE.width,
+    ),
+    purple,
+    FINISH_GATE.x,
+    FINISH_GATE.y + FINISH_GATE.height / 2 - 0.2,
+    FINISH_GATE.z,
+  );
+  mesh(
+    new THREE.CylinderGeometry(0.2, 0.2, FINISH_GATE.height + 0.1, 16),
+    peach,
+    FINISH_GATE.x,
+    FINISH_GATE.y + FINISH_GATE.height / 2 - 0.2,
+    FINISH_GATE.z,
   );
   // The finish surface and arch share the physical crossing coordinate.
   const finishY = runoutCentre(MARBLE_FINISH_Z).y + 0.025;
@@ -347,6 +426,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
       }
     });
     paddle.rotation.y = frame?.paddleAngle ?? 0.4;
+    finaleGate.rotation.y = frame?.finishGateAngle ?? 0.78;
     bumperMeshes.forEach((pair, i) =>
       pair.forEach((m) => {
         m.position.x = frame?.bumperX[i] ?? BUMPERS[i].x;

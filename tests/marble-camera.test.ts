@@ -96,7 +96,7 @@ void test('finale camera sees the funnel interior and finish past the approach t
 
 void test('extended course adds descending waves and further turns', () => {
   assert.ok(FUNNEL.z >= 100);
-  assert.ok(MARBLE_FINISH_Z >= 130);
+  assert.ok(MARBLE_FINISH_Z >= 120);
   const slopes = [];
   for (let z = 58; z < 82; z += 0.25)
     slopes.push((mainCentre(z + 0.25).y - mainCentre(z).y) / 0.25);

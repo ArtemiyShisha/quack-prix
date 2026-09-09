@@ -5,6 +5,8 @@ import {
   MARBLE_FINISH_Z,
   mainCentre,
   mainWidth,
+  shortcutCentre,
+  shortcutWidth,
 } from './marble-track.ts';
 
 export const CAMERA_FOV = 43;
@@ -65,6 +67,14 @@ export function followCamera(z: number, aspect: number): CameraPose {
   for (let s = Math.max(-5, z - 10); s <= Math.min(FUNNEL.z, z + 15); s += 1) {
     const p = mainCentre(s),
       width = mainWidth(s) + 1.5;
+    if (s >= 33 && s <= 82) {
+      const lower = shortcutCentre(s),
+        half = shortcutWidth(s);
+      points.push(
+        new Vector3(lower.x - half, lower.y, s),
+        new Vector3(lower.x + half, lower.y + 2, s),
+      );
+    }
     for (const x of [-width, width])
       for (const y of [0, 5]) points.push(new Vector3(p.x + x, p.y + y, s));
   }

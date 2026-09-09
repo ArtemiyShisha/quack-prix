@@ -28,6 +28,11 @@ import {
   mainCentre,
   RUNOUT_START,
   runoutCentre,
+  shortcutCentre,
+  shortcutWidth,
+  PEGS,
+  FINISH_GATE,
+  finishGateAngle,
 } from './marble-track.ts';
 export type MarbleState = {
   slot: number;
@@ -39,6 +44,7 @@ export type MarbleState = {
   qz: number;
   qw: number;
   speed: number;
+  shortcut: boolean;
   stage: number;
   progress: number;
 };
@@ -46,11 +52,13 @@ export type MarbleFrame = Frame & {
   marbles: MarbleState[];
   paddleAngle: number;
   bumperX: number[];
+  finishGateAngle: number;
 };
 export class MarbleSimulation {
   private world: World;
   private bodies: Body[];
   private paddle: Body;
+  private finishGate: Body;
   private phase: number;
   private bumpers: Body[];
   private ranks: number[];
@@ -62,7 +70,7 @@ export class MarbleSimulation {
       throw new Error('Race needs 1–8 marbles');
     const random = seededRandom(seed);
     this.world = new World({
-      gravity: new Vec3(0, -22, 0),
+      gravity: new Vec3(0, -34, 0),
       allowSleep: false,
     });
     this.world.broadphase = new SAPBroadphase(this.world);
@@ -136,6 +144,26 @@ export class MarbleSimulation {
     this.paddle.quaternion.setFromAxisAngle(Vec3.UNIT_Y, this.phase);
     this.paddle.angularVelocity.set(0, PADDLE_SPEED, 0);
     this.world.addBody(this.paddle);
+    for (const peg of PEGS)
+      add(
+        new Cylinder(peg.radius, peg.radius, peg.height, 16),
+        peg.x,
+        peg.y + peg.height / 2,
+        peg.z,
+      );
+    const f = FINISH_GATE;
+    this.finishGate = add(
+      new Box(new Vec3(f.length / 2, f.height / 2, f.width / 2)),
+      f.x,
+      f.y + f.height / 2 - 0.2,
+      f.z,
+    );
+    this.finishGate.type = Body.KINEMATIC;
+    this.finishGate.quaternion.setFromAxisAngle(
+      Vec3.UNIT_Y,
+      finishGateAngle(0, this.phase),
+    );
+    this.finishGate.angularVelocity.set(0, 1.35, 0);
     this.stages = Array(count).fill(0);
     this.bodies = Array.from({ length: count }, (_, slot) => {
       const p = marbleStart(slot, count),
@@ -206,6 +234,12 @@ export class MarbleSimulation {
       qz: b.quaternion.z,
       qw: b.quaternion.w,
       speed: b.velocity.length(),
+      shortcut:
+        b.position.z > 33 &&
+        b.position.z < 66 &&
+        b.position.y < mainCentre(b.position.z).y - 0.8 &&
+        Math.abs(b.position.x - shortcutCentre(b.position.z).x) <
+          shortcutWidth(b.position.z),
       stage: this.stages[slot],
       progress: this.progress(slot),
     }));
@@ -215,6 +249,9 @@ export class MarbleSimulation {
       paddleAngle:
         2 * Math.atan2(this.paddle.quaternion.y, this.paddle.quaternion.w),
       bumperX: this.bumpers.map((b) => b.position.x),
+      finishGateAngle:
+        2 *
+        Math.atan2(this.finishGate.quaternion.y, this.finishGate.quaternion.w),
       ducks: marbles.map((m) => ({
         slot: m.slot,
         x: m.x,
@@ -244,9 +281,9 @@ export class MarbleSimulation {
       // The softer funnel surface dissipates rolling energy uniformly for every marble.
       for (let slot = 0; slot < this.bodies.length; slot++) {
         this.bodies[slot].linearDamping =
-          this.stages[slot] === 1 ? 0.28 : 0.045;
+          this.stages[slot] === 1 ? 0.42 : 0.045;
         this.bodies[slot].angularDamping =
-          this.stages[slot] === 1 ? 0.22 : 0.06;
+          this.stages[slot] === 1 ? 0.36 : 0.06;
       }
       this.bumpers.forEach((body, i) => {
         const angle = ((this.ticks + 1) / 120) * 0.95 + this.phase + i * 1.7;
@@ -262,7 +299,7 @@ export class MarbleSimulation {
         if (
           this.stages[slot] === 0 &&
           p.z > RUNOUT_START &&
-          p.y < 7.1 &&
+          p.y < FUNNEL.bottom + 0.055 * FUNNEL.radius ** 2 + MARBLE_RADIUS &&
           r < FUNNEL.radius
         )
           this.stages[slot] = 1;

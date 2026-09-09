@@ -7,14 +7,14 @@ export type TrackMesh = {
   edges: Point3[][];
 };
 export const MARBLE_RADIUS = 0.48;
-export const MARBLE_FINISH_Z = 134;
+export const MARBLE_FINISH_Z = 128;
 export const MARBLE_MAX_SECONDS = 75;
 export const PADDLE_SPEED = 1.1;
 export const FUNNEL = { x: 6.4, z: 106, radius: 9.5, hole: 1.25, bottom: 3.4 };
 export const RUNOUT_START = FUNNEL.z - 4;
 export const runoutCentre = (z: number): Point3 => ({
   x: FUNNEL.x,
-  y: 1.6 - 0.05 * (z - RUNOUT_START),
+  y: 1.6 - 0.12 * (z - RUNOUT_START),
   z,
 });
 const anchors = [
@@ -38,10 +38,10 @@ export function mainCentre(z: number): Point3 {
     t = Math.max(0, Math.min(1, (z - a[0]) / (b[0] - a[0])));
   const wave =
     z > 58 && z < 82 ? 0.28 * Math.sin((Math.PI * (z - 58)) / 6) ** 2 : 0;
-  return { x: a[1] + (b[1] - a[1]) * smooth(t), y: 45 - 0.36 * z + wave, z };
+  return { x: a[1] + (b[1] - a[1]) * smooth(t), y: 55.6 - 0.46 * z + wave, z };
 }
 export function mainWidth(z: number) {
-  const wide = Math.max(0, Math.min(1, (z - 27) / 6, (47 - z) / 6));
+  const wide = Math.max(0, Math.min(1, (z - 27) / 6, (71 - z) / 6));
   return (
     3.4 +
     1.9 * smooth(wide) -
@@ -57,7 +57,8 @@ function trough(
   centre: (s: number) => Point3,
   width: (s: number) => number,
   colour: string,
-  bankScale = 1,
+  bankScale: number | ((z: number) => number) = 1,
+  opening?: (x: number, z: number) => boolean,
 ): TrackMesh {
   const positions: number[] = [],
     indices: number[] = [],
@@ -67,8 +68,8 @@ function trough(
   for (let i = 0; i <= rows; i++) {
     const s = from + ((to - from) * i) / rows,
       p = centre(s),
-      before = centre(Math.max(from, s - 0.01)),
-      after = centre(Math.min(to, s + 0.01));
+      before = centre(s - 0.01),
+      after = centre(s + 0.01);
     const dx = after.x - before.x,
       dz = after.z - before.z,
       length = Math.hypot(dx, dz) || 1;
@@ -77,7 +78,10 @@ function trough(
         r = width(s),
         v = {
           x: p.x + (dz / length) * u * r,
-          y: p.y + troughHeight(u) * bankScale,
+          y:
+            p.y +
+            troughHeight(u) *
+              (typeof bankScale === 'number' ? bankScale : bankScale(s)),
           z: p.z - (dx / length) * u * r,
         };
       positions.push(v.x, v.y, v.z);
@@ -88,7 +92,10 @@ function trough(
           b = a + 1,
           c = a + columns + 1,
           d = c + 1;
-        indices.push(a, c, b, b, c, d);
+        const centreU = u + 1 / columns;
+        const cellX = p.x + (dz / length) * centreU * r;
+        const cellZ = p.z - (dx / length) * centreU * r + 0.25;
+        if (!opening?.(cellX, cellZ)) indices.push(a, c, b, b, c, d);
       }
     }
   }
@@ -143,15 +150,78 @@ function funnel(): TrackMesh {
   }
   return { positions, indices, colour: '#ffc76c', opacity: 0.38, edges };
 }
+export const SHORTCUT_ENTRY = {
+  x: -2.5,
+  z: 37,
+  halfWidth: 1.35,
+  halfLength: 2.4,
+};
+export function shortcutCentre(z: number): Point3 {
+  const t = smooth(Math.max(0, Math.min(1, (z - 40) / 26)));
+  const straight = -2.5 + (mainCentre(66).x + 2.5) * t;
+  const blend = smooth(Math.max(0, Math.min(1, (z - 60) / 6)));
+  const x = straight + (mainCentre(z).x - straight) * blend;
+  const depth =
+    z < 66 ? 3 : 3 * (1 - smooth(Math.max(0, Math.min(1, (z - 66) / 16))));
+  return { x, y: mainCentre(z).y - depth, z };
+}
+export const shortcutWidth = (z: number) => {
+  if (z < 50)
+    return 3.4 - 1.75 * smooth(Math.max(0, Math.min(1, (z - 42) / 8)));
+  return z < 60
+    ? 1.65
+    : z < 66
+      ? 1.65 + (mainWidth(z) - 1.65) * smooth((z - 60) / 6)
+      : mainWidth(z);
+};
+export const shortcutBankScale = (z: number) =>
+  0.28 + 0.37 * (1 - smooth(Math.max(0, Math.min(1, (z - 42) / 8))));
+const entryOpening = (x: number, z: number) =>
+  Math.abs(x - SHORTCUT_ENTRY.x) < SHORTCUT_ENTRY.halfWidth &&
+  Math.abs(z - SHORTCUT_ENTRY.z) < SHORTCUT_ENTRY.halfLength;
+const fork = trough(30, 47, mainCentre, mainWidth, '#b6a4e9', 1, entryOpening);
+fork.opacity = 0.48;
+const pegDeck = trough(47, 66, mainCentre, mainWidth, '#efb57e');
+pegDeck.opacity = 0.48;
 const mainSections: TrackMesh[] = [
   trough(-5, 17, mainCentre, mainWidth, '#76d7d7'),
   trough(17, 30, mainCentre, mainWidth, '#79b9ee'),
-  trough(30, 47, mainCentre, mainWidth, '#b6a4e9'),
-  trough(47, 58, mainCentre, mainWidth, '#76d7d7'),
-  trough(58, 82, mainCentre, mainWidth, '#efb57e'),
+  fork,
+  pegDeck,
   trough(82, 96, mainCentre, mainWidth, '#a4ce95'),
   trough(96, FUNNEL.z, mainCentre, mainWidth, '#79b9ee'),
 ];
+const shortcut = trough(
+  33,
+  66,
+  shortcutCentre,
+  shortcutWidth,
+  '#50c9b5',
+  shortcutBankScale,
+);
+const merge = trough(
+  66,
+  82,
+  shortcutCentre,
+  shortcutWidth,
+  '#50c9b5',
+  (z) => 0.28 + 0.72 * smooth(Math.max(0, Math.min(1, (z - 66) / 6))),
+);
+export const PEGS = [49, 54, 59].flatMap((z, row) =>
+  [-2.8, 0, 2.8].map((offset) => {
+    const p = mainCentre(z),
+      x = p.x + offset + (row % 2 ? 1.1 : 0);
+    return { x, y: p.y - 0.2, z, radius: 0.55, height: 2.1 };
+  }),
+);
+export const FINISH_GATE = {
+  ...runoutCentre(MARBLE_FINISH_Z - 5),
+  length: 3.2,
+  height: 1.8,
+  width: 0.32,
+};
+export const finishGateAngle = (time: number, phase: number) =>
+  phase + time * 1.35;
 // Clear side guards catch bank launches on the faster wave/turn section.
 // They are real collision surfaces, with the same shape used for rendering.
 function guards(section: TrackMesh): TrackMesh {
@@ -169,19 +239,28 @@ function guards(section: TrackMesh): TrackMesh {
   }
   return { positions, indices, colour: '#b8e6ed', opacity: 0.18, edges: [] };
 }
+const runout = trough(
+  RUNOUT_START,
+  MARBLE_FINISH_Z + 5,
+  runoutCentre,
+  (z) => 3.5 - 1.3 * smooth(Math.max(0, Math.min(1, (z - (FUNNEL.z + 4)) / 8))),
+  '#ef9988',
+  0.28,
+);
 export const TRACK_MESHES: TrackMesh[] = [
   ...mainSections,
-  ...mainSections.slice(3).map(guards),
+  ...mainSections.map(guards),
+  shortcut,
+  merge,
+  guards(merge),
   funnel(),
-  trough(
-    RUNOUT_START,
-    MARBLE_FINISH_Z + 5,
-    runoutCentre,
-    (z) =>
-      3.5 - 1.3 * smooth(Math.max(0, Math.min(1, (z - (FUNNEL.z + 4)) / 8))),
-    '#ef9988',
-    0.28,
-  ),
+  runout,
+  guards({
+    ...runout,
+    edges: runout.edges.map((edge) =>
+      edge.filter((p) => p.z > FUNNEL.z + FUNNEL.radius + 1),
+    ),
+  }),
 ];
 export const BUMPERS = [
   { ...mainCentre(19), offset: -1.35, radius: 0.62 },
