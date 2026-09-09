@@ -995,16 +995,6 @@ h2 {
   }
 }
 
-.marble-swatch {
-  width: 31px;
-  height: 31px;
-  margin: 3px;
-  flex: 0 0 31px;
-  border-radius: 50%;
-  box-shadow:
-    inset -5px -6px 8px #0003,
-    inset 4px 4px 6px #fff9;
-}
 .marble-result {
   background: #fffdf5;
   border-top: 1px solid #d7e3e7;

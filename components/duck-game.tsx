@@ -25,7 +25,7 @@ import {
   STORAGE_KEY,
   type Member,
 } from '@/lib/roster';
-import { COLOURS, HUES, FINISH_DISTANCE } from '@/lib/track';
+import { HUES, FINISH_DISTANCE } from '@/lib/track';
 import { FLUSH_SECONDS, MAX_SECONDS } from '@/lib/race';
 import { prepareSound, quack } from '@/lib/sound';
 import { useGameTools } from '@/hooks/use-game-tools';
@@ -179,17 +179,10 @@ export function DuckGame({
                 key={member.id}
               >
                 <span
-                  className={
-                    is3d ? 'marble-swatch' : `duck-avatar duck-${index}`
-                  }
-                  style={
-                    is3d
-                      ? { backgroundColor: COLOURS[member.id % 8] }
-                      : undefined
-                  }
+                  className={`duck-avatar duck-${index}`}
                   aria-hidden="true"
                 >
-                  {!is3d && <img src="/duck.png" alt="" />}
+                  <img src="/duck.png" alt="" />
                 </span>
                 <Input
                   aria-label={`Участник ${index + 1}`}
