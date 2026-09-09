@@ -6,15 +6,24 @@ import {
   COUNTDOWN_SECONDS,
   type Frame,
 } from '@/lib/race';
+import { MarbleSimulation } from '@/lib/marble-race';
 import { freshSeed, shuffled } from '@/lib/random';
 import { raceMembers, type Member } from '@/lib/roster';
 export type RaceSetup = { members: Member[]; seed: number; sequence: number };
-export function useRace() {
+export function useRace(
+  mode: 'classic' | 'marbles' = 'classic',
+  enabled = true,
+) {
   const [setup, setSetup] = useState<RaceSetup | null>(null);
   const [frame, setFrame] = useState<Frame | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const locked = useRef(false);
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    enabledRef.current = enabled;
+    setPaused(document.hidden || !enabled);
+  }, [enabled]);
   const sequence = useRef(0);
   const start = useCallback((roster: Member[]) => {
     if (locked.current) throw new Error('Заезд уже идёт.');
@@ -37,7 +46,10 @@ export function useRace() {
   }, []);
   useEffect(() => {
     if (!setup) return;
-    const simulation = new RaceSimulation(setup.members.length, setup.seed);
+    const simulation =
+      mode === 'marbles'
+        ? new MarbleSimulation(setup.members.length, setup.seed)
+        : new RaceSimulation(setup.members.length, setup.seed);
     setFrame(simulation.snapshot());
     let previous = performance.now(),
       accumulator = 0,
@@ -47,14 +59,14 @@ export function useRace() {
       finished = false;
     const visibility = () => {
       previous = performance.now();
-      setPaused(document.hidden);
+      setPaused(document.hidden || !enabledRef.current);
     };
     document.addEventListener('visibilitychange', visibility);
     const animate = (now: number) => {
       if (finished) return;
       const delta = Math.min(now - previous, 120);
       previous = now;
-      if (document.hidden) {
+      if (document.hidden || !enabledRef.current) {
         request = requestAnimationFrame(animate);
         return;
       }
@@ -94,7 +106,7 @@ export function useRace() {
       document.removeEventListener('visibilitychange', visibility);
       simulation.destroy();
     };
-  }, [setup]);
+  }, [setup, mode]);
   return {
     setup,
     frame,

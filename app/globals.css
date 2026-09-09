@@ -891,3 +891,152 @@ h2 {
     width: 37px;
   }
 }
+.mode-switch {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.mode-switch a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 17px;
+  border: 1px solid #ccdee7;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  background: #f7fbfd;
+  color: #65808d;
+  text-decoration: none;
+}
+.mode-switch a[aria-current='page'] {
+  background: #244f69;
+  border-color: #244f69;
+  color: white;
+  box-shadow: 0 3px 0 #17394e;
+}
+.mode-switch a span {
+  font-size: 10px;
+  letter-spacing: 1px;
+  background: #ffd77d;
+  color: #765320;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.mode-switch + .game-layout {
+  padding-top: 24px;
+}
+.marble-stage {
+  position: relative;
+  height: clamp(400px, 65vw, 720px);
+  background: #dceaf2;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.marble-canvas {
+  position: absolute;
+  inset: 0;
+}
+.marble-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.marble-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.marble-name {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  background: #fffefaee;
+  border: 2px solid;
+  border-radius: 18px;
+  padding: 1px 10px 1px 2px;
+  font-size: 14px;
+  font-weight: 750;
+  color: #24475a;
+  box-shadow: 0 3px 6px #23475c1c;
+  will-change: transform;
+}
+.marble-name[hidden] {
+  display: none;
+}
+.marble-name img {
+  width: 29px;
+  height: 29px;
+  object-fit: contain;
+}
+.marble-name span {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.marble-camera-hint {
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+  background: #ffffffc9;
+  color: #476a80;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.marble-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+  gap: 12px;
+  background: #dceaf2;
+  color: #31546a;
+}
+.marble-message strong {
+  font-size: 22px;
+}
+.marble-message p {
+  max-width: 360px;
+  line-height: 1.5;
+  margin: 0;
+}
+.marble-message a {
+  color: #b5492c;
+  text-decoration: underline;
+  font-weight: 700;
+}
+@media (max-width: 740px) {
+  .marble-stage {
+    height: 490px;
+  }
+  .marble-camera-hint {
+    font-size: 11px;
+    max-width: 95%;
+    white-space: normal;
+    text-align: center;
+  }
+  .marble-name {
+    font-size: 12px;
+    padding-right: 7px;
+  }
+  .marble-name img {
+    width: 23px;
+    height: 23px;
+  }
+}
+.marble-label-stems {position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;}

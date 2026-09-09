@@ -15,3 +15,10 @@ Identical bodies receive a fresh independent assignment of names for every race.
 Toy water-park appearance: pale tiled floor, curved transparent channels, shaded bowls, mint fork, blue cascade, warm island and ledges, dark open drains, subtle contour lines, glossy coloured ducks, upright name pills. Remove event flashes, explosion rings, boost trails and geyser messaging.
 
 Validation covers smooth free motion, actual orbits/contact, always-open drains, downstream geometry, crossing/queue order, collision isolation, fair shuffle, all counts, reproducibility, finite bounded states, duration/freeze, types and build. Statistical checks are evidence about sampled runs, not proof of subjective feel or guaranteed overtakes. Browser interaction/visual QA only when explicitly requested.
+
+
+## Additional 3D mode — 9 September
+
+The new `/3d` route is an alternative alongside `/`, sharing roster and independent identity assignment. Cannon-es sphere bodies roll in full 3D under uniform gravity along a raised serpentine, pass moving bumpers, fork around a solid island, pass an offset paddle, enter a bowl with an open centre, and drop onto a separate low-walled finish chute. All collision triangle data feeds Three.js directly. Uniform funnel damping, with no dependence on rank or elapsed time, dissipates orbits; moving colliders affect balls only on contact.
+
+A perspective follow camera and rotatable overview show elevation, support legs and soft shadows. Striped numbered marbles use the roster colours; existing duck images accompany names. A pure 2D placement function resolves labels around dense packs in all directions without forcing overlaps. No WebGL falls back to a classic-route link; unavailable rendering pauses the race. New physical crossing checks require actual outlet clearance and interpolation through the marked finish opening. The emergency bound is 75 seconds for 3D, without changing classic timing or simulation.
