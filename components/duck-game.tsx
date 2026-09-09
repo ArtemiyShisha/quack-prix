@@ -29,6 +29,7 @@ import { HUES, FINISH_DISTANCE } from '@/lib/track';
 import { FLUSH_SECONDS, MAX_SECONDS } from '@/lib/race';
 import { prepareSound, quack } from '@/lib/sound';
 import { useGameTools } from '@/hooks/use-game-tools';
+import { appUrl } from '@/lib/urls';
 
 export function DuckGame({
   mode = 'classic',
@@ -143,8 +144,8 @@ export function DuckGame({
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Кряк-при, главная">
-          <img src="/duck.png" alt="" />
+        <a className="brand" href={appUrl('/')} aria-label="Кряк-при, главная">
+          <img src={appUrl('/duck.png')} alt="" />
           <span>
             кряк-при<span className="brand-dot">.</span>
           </span>
@@ -155,10 +156,10 @@ export function DuckGame({
         </span>
       </header>
       <nav className="mode-switch" aria-label="Режим гонки">
-        <a href="/" aria-current={!is3d ? 'page' : undefined}>
+        <a href={appUrl('/')} aria-current={!is3d ? 'page' : undefined}>
           🦆 Аквапарк
         </a>
-        <a href="/3d" aria-current={is3d ? 'page' : undefined}>
+        <a href={appUrl('/3d/')} aria-current={is3d ? 'page' : undefined}>
           🔮 Шарики 3D <span>НОВОЕ</span>
         </a>
       </nav>
@@ -182,7 +183,7 @@ export function DuckGame({
                   className={`duck-avatar duck-${index}`}
                   aria-hidden="true"
                 >
-                  <img src="/duck.png" alt="" />
+                  <img src={appUrl('/duck.png')} alt="" />
                 </span>
                 <Input
                   aria-label={`Участник ${index + 1}`}
@@ -359,7 +360,7 @@ export function DuckGame({
                 <div className="winner-card" role="status">
                   <span className="winner-kicker">КРЯ! У НАС ЕСТЬ ВЕДУЩИЙ</span>
                   <img
-                    src="/duck.png"
+                    src={appUrl('/duck.png')}
                     alt="Победившая утка"
                     style={{ filter: `hue-rotate(${HUES[winner.id]}deg)` }}
                   />

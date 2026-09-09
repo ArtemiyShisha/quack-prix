@@ -4,6 +4,7 @@ import type { Frame } from '@/lib/race';
 import type { MarbleFrame } from '@/lib/marble-race';
 import type { Member } from '@/lib/roster';
 import type { createMarbleScene } from '@/lib/marble-scene';
+import { appUrl } from '@/lib/urls';
 export function MarbleTrack({
   members,
   frame,
@@ -76,7 +77,7 @@ export function MarbleTrack({
         <div className="marble-message" role="alert">
           <strong>3D здесь не запустился</strong>
           <p>Попробуй браузер с поддержкой WebGL или запусти обычную гонку.</p>
-          <a href="/">К уткам в аквапарк →</a>
+          <a href={appUrl('/')}>К уткам в аквапарк →</a>
         </div>
       )}
     </div>

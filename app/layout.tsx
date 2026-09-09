@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
+import { appUrl } from '@/lib/urls';
 import './globals.css';
 export const metadata: Metadata = {
   title: 'Кряк-при — кто сегодня ведёт дейлик?',
   description:
     'Впишите до восьми имён, выпустите уток на трассу и узнайте, кто сегодня ведёт дейлик.',
-  icons: { icon: '/duck.png' },
+  icons: { icon: appUrl('/duck.png') },
 };
 export default function RootLayout({
   children,

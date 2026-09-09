@@ -15,6 +15,7 @@ import {
 } from '@/lib/track';
 import type { Frame } from '@/lib/race';
 import type { Member } from '@/lib/roster';
+import { appUrl } from '@/lib/urls';
 const path = (points: { x: number; y: number }[]) =>
   points
     .map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1))
@@ -82,7 +83,7 @@ export function RaceTrack({
           transform={`translate(${p.x} ${p.y}) scale(${state?.inTube ? 0.8 : 1}) rotate(${((state?.angle ?? 0) * 180) / Math.PI})`}
         >
           <image
-            href="/duck.png"
+            href={appUrl('/duck.png')}
             x="-43"
             y="-43"
             width="86"

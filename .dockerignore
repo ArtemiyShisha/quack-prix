@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.env*
+.wrangler
+.vinext
+.next
+.codex
+.agents
+outputs
+work
+coverage
+*.tsbuildinfo
+*.log
+.DS_Store
