@@ -12,27 +12,12 @@ import {
   ContactMaterial,
 } from 'cannon-es';
 import { seededRandom, shuffled } from './random.ts';
-import { FINISH_DISTANCE } from './track.ts';
 import type { Frame, Finish } from './race.ts';
 import {
-  TRACK_MESHES,
+  createMarbleCourse,
   MARBLE_RADIUS,
-  MARBLE_FINISH_Z,
   MARBLE_MAX_SECONDS,
-  FUNNEL,
-  PADDLE_SPEED,
-  BUMPERS,
-  ISLAND_3D,
-  PADDLE_3D,
-  marbleStart,
-  mainCentre,
-  RUNOUT_START,
-  runoutCentre,
-  shortcutCentre,
-  shortcutWidth,
-  PEGS,
-  FINISH_GATE,
-  finishGateAngle,
+  type MarbleCourse,
 } from './marble-track.ts';
 export type MarbleState = {
   slot: number;
@@ -49,12 +34,14 @@ export type MarbleState = {
   progress: number;
 };
 export type MarbleFrame = Frame & {
+  courseSeed: number | null;
   marbles: MarbleState[];
   paddleAngle: number;
   bumperX: number[];
   finishGateAngle: number;
 };
 export class MarbleSimulation {
+  readonly course: MarbleCourse;
   private world: World;
   private bodies: Body[];
   private paddle: Body;
@@ -65,12 +52,17 @@ export class MarbleSimulation {
   private stages: number[];
   private ticks = 0;
   private result: Finish | null = null;
-  constructor(count: number, seed: number) {
+  constructor(
+    count: number,
+    seed: number,
+    course: MarbleCourse = createMarbleCourse(seed),
+  ) {
+    this.course = course;
     if (!Number.isInteger(count) || count < 1 || count > 8)
       throw new Error('Race needs 1–8 marbles');
     const random = seededRandom(seed);
     this.world = new World({
-      gravity: new Vec3(0, -34, 0),
+      gravity: new Vec3(0, -this.course.gravity, 0),
       allowSleep: false,
     });
     this.world.broadphase = new SAPBroadphase(this.world);
@@ -87,7 +79,7 @@ export class MarbleSimulation {
     this.world.addContactMaterial(
       new ContactMaterial(marble, marble, { friction: 0.06, restitution: 0.6 }),
     );
-    for (const mesh of TRACK_MESHES)
+    for (const mesh of this.course.TRACK_MESHES)
       this.world.addBody(
         new Body({
           mass: 0,
@@ -105,10 +97,15 @@ export class MarbleSimulation {
       this.world.addBody(body);
       return body;
     };
-    add(new Box(new Vec3(4, 2, 0.15)), 0, mainCentre(-5).y + 2, -5);
-    add(new Box(new Vec3(3.5, 0.6, 0.15)), FUNNEL.x, 2.1, RUNOUT_START);
+    add(new Box(new Vec3(4, 2, 0.15)), 0, this.course.mainCentre(-5).y + 2, -5);
+    add(
+      new Box(new Vec3(3.5, 0.6, 0.15)),
+      this.course.FUNNEL.x,
+      2.1,
+      this.course.RUNOUT_START,
+    );
     this.phase = random() * Math.PI * 2;
-    this.bumpers = BUMPERS.map((b, i) => {
+    this.bumpers = this.course.BUMPERS.map((b, i) => {
       const body = add(
         new Cylinder(b.radius, b.radius, 1.8, 20),
         b.x + 0.8 * Math.sin(this.phase + i * 1.7),
@@ -118,7 +115,7 @@ export class MarbleSimulation {
       body.type = Body.KINEMATIC;
       return body;
     });
-    const p = ISLAND_3D;
+    const p = this.course.ISLAND_3D;
     add(
       new Box(new Vec3(p.radius, p.height / 2, p.halfLength)),
       p.x,
@@ -132,7 +129,7 @@ export class MarbleSimulation {
         p.y + p.height / 2,
         p.z + p.halfLength * direction,
       );
-    const gate = PADDLE_3D;
+    const gate = this.course.PADDLE_3D;
     this.paddle = new Body({
       type: Body.KINEMATIC,
       material: surface,
@@ -142,16 +139,16 @@ export class MarbleSimulation {
       position: new Vec3(gate.x, gate.y + gate.height / 2, gate.z),
     });
     this.paddle.quaternion.setFromAxisAngle(Vec3.UNIT_Y, this.phase);
-    this.paddle.angularVelocity.set(0, PADDLE_SPEED, 0);
+    this.paddle.angularVelocity.set(0, this.course.PADDLE_SPEED, 0);
     this.world.addBody(this.paddle);
-    for (const peg of PEGS)
+    for (const peg of this.course.PEGS)
       add(
         new Cylinder(peg.radius, peg.radius, peg.height, 16),
         peg.x,
         peg.y + peg.height / 2,
         peg.z,
       );
-    const f = FINISH_GATE;
+    const f = this.course.FINISH_GATE;
     this.finishGate = add(
       new Box(new Vec3(f.length / 2, f.height / 2, f.width / 2)),
       f.x,
@@ -161,12 +158,12 @@ export class MarbleSimulation {
     this.finishGate.type = Body.KINEMATIC;
     this.finishGate.quaternion.setFromAxisAngle(
       Vec3.UNIT_Y,
-      finishGateAngle(0, this.phase),
+      this.course.finishGateAngle(0, this.phase),
     );
-    this.finishGate.angularVelocity.set(0, 1.35, 0);
+    this.finishGate.angularVelocity.set(0, this.course.finishSpeed, 0);
     this.stages = Array(count).fill(0);
     this.bodies = Array.from({ length: count }, (_, slot) => {
-      const p = marbleStart(slot, count),
+      const p = this.course.marbleStart(slot, count),
         body = new Body({
           mass: 1,
           material: marble,
@@ -206,7 +203,11 @@ export class MarbleSimulation {
         600 *
           Math.max(
             0,
-            Math.min(1, (p.z - FUNNEL.z) / (MARBLE_FINISH_Z - FUNNEL.z)),
+            Math.min(
+              1,
+              (p.z - this.course.FUNNEL.z) /
+                (this.course.MARBLE_FINISH_Z - this.course.FUNNEL.z),
+            ),
           )
       );
     if (stage === 1)
@@ -217,11 +218,19 @@ export class MarbleSimulation {
             0,
             Math.min(
               1,
-              1 - Math.hypot(p.x - FUNNEL.x, p.z - FUNNEL.z) / FUNNEL.radius,
+              1 -
+                Math.hypot(
+                  p.x - this.course.FUNNEL.x,
+                  p.z - this.course.FUNNEL.z,
+                ) /
+                  this.course.FUNNEL.radius,
             ),
           )
       );
-    return Math.max(0, Math.min(2599, ((p.z + 3) / (FUNNEL.z + 3)) * 2600));
+    return Math.max(
+      0,
+      Math.min(2599, ((p.z + 3) / (this.course.FUNNEL.z + 3)) * 2600),
+    );
   }
   snapshot(): MarbleFrame {
     const marbles = this.bodies.map((b, slot) => ({
@@ -235,16 +244,17 @@ export class MarbleSimulation {
       qw: b.quaternion.w,
       speed: b.velocity.length(),
       shortcut:
-        b.position.z > 33 &&
-        b.position.z < 66 &&
-        b.position.y < mainCentre(b.position.z).y - 0.8 &&
-        Math.abs(b.position.x - shortcutCentre(b.position.z).x) <
-          shortcutWidth(b.position.z),
+        b.position.z > this.course.shortcutFrom &&
+        b.position.z < this.course.shortcutTo &&
+        b.position.y < this.course.mainCentre(b.position.z).y - 0.8 &&
+        Math.abs(b.position.x - this.course.shortcutCentre(b.position.z).x) <
+          this.course.shortcutWidth(b.position.z),
       stage: this.stages[slot],
       progress: this.progress(slot),
     }));
     return {
       elapsed: this.ticks / 120,
+      courseSeed: this.course.seed,
       marbles,
       paddleAngle:
         2 * Math.atan2(this.paddle.quaternion.y, this.paddle.quaternion.w),
@@ -286,8 +296,11 @@ export class MarbleSimulation {
           this.stages[slot] === 1 ? 0.36 : 0.06;
       }
       this.bumpers.forEach((body, i) => {
-        const angle = ((this.ticks + 1) / 120) * 0.95 + this.phase + i * 1.7;
-        const nextX = BUMPERS[i].x + 0.8 * Math.sin(angle);
+        const angle =
+          ((this.ticks + 1) / 120) * this.course.bumperSpeed +
+          this.phase +
+          i * 1.7;
+        const nextX = this.course.BUMPERS[i].x + 0.8 * Math.sin(angle);
         body.velocity.set((nextX - body.position.x) * 120, 0, 0);
       });
       this.world.step(1 / 120);
@@ -295,34 +308,42 @@ export class MarbleSimulation {
       const crossings: { slot: number; fraction: number }[] = [];
       this.bodies.forEach((b, slot) => {
         const p = b.position,
-          r = Math.hypot(p.x - FUNNEL.x, p.z - FUNNEL.z);
+          r = Math.hypot(
+            p.x - this.course.FUNNEL.x,
+            p.z - this.course.FUNNEL.z,
+          );
         if (
           this.stages[slot] === 0 &&
-          p.z > RUNOUT_START &&
-          p.y < FUNNEL.bottom + 0.055 * FUNNEL.radius ** 2 + MARBLE_RADIUS &&
-          r < FUNNEL.radius
+          p.z > this.course.RUNOUT_START &&
+          p.y <
+            this.course.FUNNEL.bottom +
+              0.055 * this.course.FUNNEL.radius ** 2 +
+              MARBLE_RADIUS &&
+          r < this.course.FUNNEL.radius
         )
           this.stages[slot] = 1;
         if (
           this.stages[slot] === 1 &&
-          p.y < FUNNEL.bottom - MARBLE_RADIUS &&
-          r < FUNNEL.hole + MARBLE_RADIUS
+          p.y < this.course.FUNNEL.bottom - MARBLE_RADIUS &&
+          r < this.course.FUNNEL.hole + MARBLE_RADIUS
         )
           this.stages[slot] = 2;
         if (
           this.stages[slot] === 2 &&
-          before[slot].z < MARBLE_FINISH_Z &&
-          p.z >= MARBLE_FINISH_Z
+          before[slot].z < this.course.MARBLE_FINISH_Z &&
+          p.z >= this.course.MARBLE_FINISH_Z
         ) {
           const prior = before[slot],
-            fraction = (MARBLE_FINISH_Z - prior.z) / (p.z - prior.z);
+            fraction =
+              (this.course.MARBLE_FINISH_Z - prior.z) / (p.z - prior.z);
           const x = prior.x + (p.x - prior.x) * fraction,
             y = prior.y + (p.y - prior.y) * fraction;
           // Only the marked finish opening counts; a falling body beside the chute cannot win.
           if (
-            Math.abs(x - FUNNEL.x) <= 2.2 + MARBLE_RADIUS &&
-            y >= runoutCentre(MARBLE_FINISH_Z).y - 0.5 &&
-            y <= runoutCentre(MARBLE_FINISH_Z).y + 3.5
+            Math.abs(x - this.course.FUNNEL.x) <= 2.2 + MARBLE_RADIUS &&
+            y >=
+              this.course.runoutCentre(this.course.MARBLE_FINISH_Z).y - 0.5 &&
+            y <= this.course.runoutCentre(this.course.MARBLE_FINISH_Z).y + 3.5
           )
             crossings.push({ slot, fraction });
         }
@@ -355,6 +376,7 @@ export class MarbleSimulation {
     return this.snapshot();
   }
   destroy() {
-    for (const body of [...this.world.bodies]) this.world.removeBody(body);
+    const bodies = this.world.bodies.slice();
+    for (const body of bodies) this.world.removeBody(body);
   }
 }

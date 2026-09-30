@@ -1,3 +1,4 @@
+import { LEGACY_MARBLE_COURSE } from '../lib/marble-track.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MarbleSimulation } from '../lib/marble-race.ts';
@@ -7,7 +8,7 @@ const internals = (r: MarbleSimulation) =>
   r as unknown as { bodies: Body[]; stages: number[]; finishGate: Body };
 
 void test('the side opening drops a marble onto a separate lower route', () => {
-  const race = new MarbleSimulation(1, 12),
+  const race = new MarbleSimulation(1, 12, LEGACY_MARBLE_COURSE),
     body = internals(race).bodies[0];
   body.position.set(-2.4, course.mainCentre(37).y + 1.3, 37);
   body.velocity.set(0, 0, 2);
@@ -23,7 +24,7 @@ void test('the side opening drops a marble onto a separate lower route', () => {
 
 void test('a marble rolls through the lower shortcut and rejoins the main course', () => {
   assert.equal(typeof course.shortcutCentre, 'function');
-  const race = new MarbleSimulation(1, 21),
+  const race = new MarbleSimulation(1, 21, LEGACY_MARBLE_COURSE),
     body = internals(race).bodies[0];
   const p = course.shortcutCentre(40);
   body.position.set(p.x, p.y + course.MARBLE_RADIUS + 0.05, p.z);
@@ -43,7 +44,7 @@ void test('final barrier varies its physical opening and snapshot uses its actua
   assert.ok(
     Math.abs(course.finishGateAngle(0, 0) - course.finishGateAngle(1, 0)) > 0.5,
   );
-  const race = new MarbleSimulation(1, 11),
+  const race = new MarbleSimulation(1, 11, LEGACY_MARBLE_COURSE),
     body = internals(race).finishGate;
   for (let i = 0; i < 120; i++) race.step();
   assert.ok(
@@ -57,7 +58,7 @@ void test('final barrier varies its physical opening and snapshot uses its actua
 
 void test('both sides of the shortcut join the landing without a seam escape', () => {
   for (const u of [-0.8, -0.5, 0, 0.5, 0.8]) {
-    const race = new MarbleSimulation(1, 21),
+    const race = new MarbleSimulation(1, 21, LEGACY_MARBLE_COURSE),
       body = internals(race).bodies[0],
       z = 63;
     const p = course.shortcutCentre(z),
@@ -86,7 +87,7 @@ void test('both sides of the shortcut join the landing without a seam escape', (
 });
 
 void test('the lower intake catches a marble dropping off the outer edge of the opening', () => {
-  const race = new MarbleSimulation(1, 21),
+  const race = new MarbleSimulation(1, 21, LEGACY_MARBLE_COURSE),
     body = internals(race).bodies[0],
     z = 36.2;
   body.position.set(-4.2, course.mainCentre(z).y - 1.4, z);

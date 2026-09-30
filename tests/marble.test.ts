@@ -1,9 +1,10 @@
+import { LEGACY_MARBLE_COURSE } from '../lib/marble-track.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MarbleSimulation } from '../lib/marble-race.ts';
 import { FUNNEL, MARBLE_FINISH_Z } from '../lib/marble-track.ts';
 void test('marbles roll and descend in three dimensions under gravity', () => {
-  const race = new MarbleSimulation(4, 18);
+  const race = new MarbleSimulation(4, 18, LEGACY_MARBLE_COURSE);
   const first = race.snapshot();
   let frame = first;
   for (let i = 0; i < 240; i++) frame = race.step();
@@ -14,9 +15,9 @@ void test('marbles roll and descend in three dimensions under gravity', () => {
 });
 
 void test('three-dimensional setup is repeatable and fresh seeds change trajectories', () => {
-  const a = new MarbleSimulation(3, 71),
-    b = new MarbleSimulation(3, 71),
-    c = new MarbleSimulation(3, 72);
+  const a = new MarbleSimulation(3, 71, LEGACY_MARBLE_COURSE),
+    b = new MarbleSimulation(3, 71, LEGACY_MARBLE_COURSE),
+    c = new MarbleSimulation(3, 72, LEGACY_MARBLE_COURSE);
   for (let i = 0; i < 90; i++) {
     assert.deepEqual(a.step(), b.step());
     c.step();
@@ -28,7 +29,7 @@ void test('three-dimensional setup is repeatable and fresh seeds change trajecto
 });
 
 void test('the marked finish rejects bypasses and compares physical crossing times', () => {
-  const r = new MarbleSimulation(2, 11);
+  const r = new MarbleSimulation(2, 11, LEGACY_MARBLE_COURSE);
   const internal = r as unknown as {
     bodies: import('cannon-es').Body[];
     stages: number[];
@@ -43,7 +44,7 @@ void test('the marked finish rejects bypasses and compares physical crossing tim
   });
   assert.equal(r.step().result, null, 'skipping the funnel cannot win');
   internal.stages.fill(2);
-  internal.bodies.forEach((body, i) => {
+  internal.bodies.forEach((body) => {
     body.position.set(FUNNEL.x + 10, 1, MARBLE_FINISH_Z - 0.06);
     body.velocity.set(0, 0, 12);
   });
@@ -68,7 +69,7 @@ void test('the marked finish rejects bypasses and compares physical crossing tim
 });
 
 void test('only a marble fully below the funnel outlet enters the finish chute stage', () => {
-  const r = new MarbleSimulation(1, 31),
+  const r = new MarbleSimulation(1, 31, LEGACY_MARBLE_COURSE),
     internal = r as unknown as {
       bodies: import('cannon-es').Body[];
       stages: number[];
@@ -85,7 +86,7 @@ void test('only a marble fully below the funnel outlet enters the finish chute s
 });
 
 void test('wave-section banks retain fast marbles through the new reversing bend', () => {
-  const race = new MarbleSimulation(3, 210);
+  const race = new MarbleSimulation(3, 210, LEGACY_MARBLE_COURSE);
   let frame = race.snapshot();
   while (frame.elapsed < 19) {
     frame = race.step();

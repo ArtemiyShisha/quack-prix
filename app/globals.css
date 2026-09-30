@@ -1055,3 +1055,26 @@ h2 {
     margin-top: 8px;
   }
 }
+
+.marble-route {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: calc(100% - 32px);
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 82%);
+  color: #4c5266;
+  pointer-events: none;
+}
+.marble-route span {
+  font-size: 11px;
+}
+.marble-route strong {
+  font-size: 12px;
+  font-weight: 600;
+}

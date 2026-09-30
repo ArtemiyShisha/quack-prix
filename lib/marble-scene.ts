@@ -7,33 +7,41 @@ import {
 } from './marble-camera';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  TRACK_MESHES,
-  BUMPERS,
-  ISLAND_3D,
-  PADDLE_3D,
-  FUNNEL,
   MARBLE_RADIUS,
-  MARBLE_FINISH_Z,
-  mainCentre,
-  marbleStart,
-  RUNOUT_START,
-  runoutCentre,
-  PEGS,
-  FINISH_GATE,
-  SHORTCUT_ENTRY,
   troughHeight,
-  mainWidth,
-  shortcutCentre,
-  shortcutWidth,
+  LEGACY_MARBLE_COURSE,
+  type MarbleCourse,
 } from './marble-track';
 import { COLOURS } from './track';
 import type { MarbleFrame } from './marble-race';
 import type { Member } from './roster';
 
-export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
+export function createMarbleScene(
+  host: HTMLDivElement,
+  onFailure: () => void,
+  course: MarbleCourse = LEGACY_MARBLE_COURSE,
+) {
+  const {
+    TRACK_MESHES,
+    BUMPERS,
+    ISLAND_3D,
+    PADDLE_3D,
+    FUNNEL,
+    MARBLE_FINISH_Z,
+    mainCentre,
+    marbleStart,
+    RUNOUT_START,
+    runoutCentre,
+    PEGS,
+    FINISH_GATE,
+    SHORTCUT_ENTRY,
+    mainWidth,
+    shortcutCentre,
+    shortcutWidth,
+  } = course;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#dceaf2');
-  scene.fog = new THREE.Fog('#dceaf2', 220, 580);
+  scene.fog = new THREE.Fog('#dceaf2', 350, 950);
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: false,
@@ -50,7 +58,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     'Объёмная трасса с катящимися шариками',
   );
   host.appendChild(renderer.domElement);
-  const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 650);
+  const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 1000);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enablePan = false;
@@ -59,19 +67,19 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
   controls.maxPolarAngle = Math.PI * 0.47;
   controls.enabled = false;
   const light = new THREE.DirectionalLight('#fff4df', 3.2);
-  light.position.set(-20, 85, 65);
+  light.position.set(-20, mainCentre(0).y + 35, FUNNEL.z * 0.45);
   light.castShadow = true;
   light.shadow.mapSize.set(2048, 2048);
   Object.assign(light.shadow.camera, {
     left: -40,
     right: 40,
-    top: 100,
-    bottom: -90,
+    top: FUNNEL.z * 0.7,
+    bottom: -FUNNEL.z * 0.7,
     near: 0.5,
-    far: 220,
+    far: FUNNEL.z + 130,
   });
   light.shadow.bias = -0.0005;
-  light.target.position.set(0, 15, 66);
+  light.target.position.set(0, mainCentre(FUNNEL.z / 2).y, FUNNEL.z / 2);
   scene.add(
     light,
     light.target,
@@ -156,11 +164,15 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
   const grid = new THREE.GridHelper(240, 60, '#adcbdc', '#b9d3e2');
   grid.position.set(0, -3.99, 40);
   scene.add(grid);
-  for (const z of [0, 12, 24, 37, 50, 62, 74, 87, 99]) {
+  for (let z = 0; z < FUNNEL.z - 6; z += 14) {
     const p = mainCentre(z),
       h = p.y + 4;
-    const lower = z >= 33 && z <= 82 ? shortcutCentre(z) : p;
-    const lowerWidth = z >= 33 && z <= 82 ? shortcutWidth(z) : mainWidth(z);
+    const lower =
+      z >= course.shortcutFrom && z <= course.mergeTo ? shortcutCentre(z) : p;
+    const lowerWidth =
+      z >= course.shortcutFrom && z <= course.mergeTo
+        ? shortcutWidth(z)
+        : mainWidth(z);
     const left = Math.min(p.x - mainWidth(z), lower.x - lowerWidth) - 0.8;
     const right = Math.max(p.x + mainWidth(z), lower.x + lowerWidth) + 0.8;
     for (const legX of [left, right]) {
@@ -352,7 +364,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
     request = 0;
   const sphere = new THREE.SphereGeometry(MARBLE_RADIUS, 32, 24);
   geometries.push(sphere);
-  const initial = followCamera(0, 1);
+  const initial = followCamera(0, 1, course);
   const focus = initial.target.clone(),
     position = new THREE.Vector3(),
     rotation = new THREE.Quaternion();
@@ -381,16 +393,20 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
       return { mesh: object, material: mat };
     });
   }
-  let wholePose = overviewCamera(1),
-    finalPose = finaleCamera(1);
+  let wholePose = overviewCamera(1, course),
+    finalPose = finaleCamera(1, course);
   function resize() {
     const { width, height } = host.getBoundingClientRect();
     if (!width || !height) return;
     renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    wholePose = overviewCamera(camera.aspect);
-    finalPose = finaleCamera(camera.aspect);
+    wholePose = overviewCamera(camera.aspect, course);
+    finalPose = finaleCamera(camera.aspect, course);
+    controls.maxDistance = Math.max(
+      420,
+      wholePose.position.distanceTo(wholePose.target) * 1.6,
+    );
     lastOverview = null;
   }
   const observer = new ResizeObserver(resize);
@@ -440,7 +456,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
       ? wholePose
       : inFinale
         ? finalPose
-        : followCamera(leader?.z ?? 0, camera.aspect);
+        : followCamera(leader?.z ?? 0, camera.aspect, course);
     if (lastOverview !== overview) {
       lastOverview = overview;
       controls.enabled = overview;
@@ -478,6 +494,7 @@ export function createMarbleScene(host: HTMLDivElement, onFailure: () => void) {
       grid.geometry.dispose();
       (grid.material as THREE.Material).dispose();
       renderer.dispose();
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     },
   };

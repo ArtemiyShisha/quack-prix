@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Frame } from '@/lib/race';
 import type { MarbleFrame } from '@/lib/marble-race';
 import type { Member } from '@/lib/roster';
 import type { createMarbleScene } from '@/lib/marble-scene';
+import { createMarbleCourse } from '@/lib/marble-track';
 import { appUrl } from '@/lib/urls';
 export function MarbleTrack({
   members,
@@ -16,21 +17,27 @@ export function MarbleTrack({
   overview: boolean;
   onReady: (ready: boolean) => void;
 }) {
+  const courseSeed = (frame as MarbleFrame | null)?.courseSeed ?? 20260930;
+  const course = useMemo(() => createMarbleCourse(courseSeed), [courseSeed]);
   const host = useRef<HTMLDivElement>(null),
     scene = useRef<ReturnType<typeof createMarbleScene> | null>(null);
-  const latest = useRef({ members, frame, overview }),
-    [error, setError] = useState(false),
-    [loading, setLoading] = useState(true);
+  const latest = useRef({ members, frame, overview });
+  const [status, setStatus] = useState<{
+    seed: number;
+    failed: boolean;
+  } | null>(null);
+  const loading = status?.seed !== courseSeed;
+  const error = !loading && status?.failed === true;
   useEffect(() => {
     latest.current = { members, frame, overview };
     scene.current?.update(frame as MarbleFrame | null, members, overview);
   }, [members, frame, overview]);
   useEffect(() => {
     let disposed = false;
+    onReady(false);
     const failure = () => {
       if (!disposed) {
-        setError(true);
-        setLoading(false);
+        setStatus({ seed: course.seed!, failed: true });
         onReady(false);
       }
     };
@@ -38,14 +45,14 @@ export function MarbleTrack({
       .then(({ createMarbleScene }) => {
         if (disposed || !host.current) return;
         try {
-          scene.current = createMarbleScene(host.current, failure);
+          scene.current = createMarbleScene(host.current, failure, course);
           const p = latest.current;
           scene.current.update(
             p.frame as MarbleFrame | null,
             p.members,
             p.overview,
           );
-          setLoading(false);
+          setStatus({ seed: course.seed!, failed: false });
           onReady(true);
         } catch {
           failure();
@@ -57,9 +64,15 @@ export function MarbleTrack({
       scene.current?.dispose();
       scene.current = null;
     };
-  }, [onReady]);
+  }, [onReady, course]);
   return (
     <div className="marble-stage">
+      {!error && !loading && (
+        <div className="marble-route" aria-live="polite">
+          <span>Новая трасса каждый заезд</span>
+          <strong>{course.name}</strong>
+        </div>
+      )}
       <div className="marble-canvas" ref={host} />
       {!error && !loading && (
         <span className="marble-camera-hint">
@@ -68,11 +81,7 @@ export function MarbleTrack({
             : 'Камера следует за гонкой'}
         </span>
       )}
-      {loading && (
-        <div className="marble-message" role="status">
-          Собираем трассу…
-        </div>
-      )}
+      {loading && <output className="marble-message">Собираем трассу…</output>}
       {error && (
         <div className="marble-message" role="alert">
           <strong>3D здесь не запустился</strong>
