@@ -33,4 +33,4 @@
 - [x] Run natural race tests and measured seeds for small/full teams; reproduce and fix jams or escapes at their physical source.
 - [x] Inspect several visibly different courses in the local browser and run two ordinary races, capturing course and close views.
 - [x] Run full tests, type check, changed-file lint, static build and diff checks.
-- [ ] Record current evidence, commit changes, update the original feature branch and show the improved local version.
+- [x] Record current evidence, commit changes, update the original feature branch and show the improved local version.
