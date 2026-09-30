@@ -8,6 +8,7 @@ import {
 } from '@/lib/race';
 import { MarbleSimulation } from '@/lib/marble-race';
 import { freshSeed, shuffled } from '@/lib/random';
+import { MARBLE_PREVIEW_SEED, nextMarbleSeed } from '@/lib/marble-path';
 import { raceMembers, type Member } from '@/lib/roster';
 export type RaceSetup = { members: Member[]; seed: number; sequence: number };
 export function useRace(
@@ -25,19 +26,27 @@ export function useRace(
     setPaused(document.hidden || !enabled);
   }, [enabled]);
   const sequence = useRef(0);
-  const start = useCallback((roster: Member[]) => {
-    if (locked.current) throw new Error('Заезд уже идёт.');
-    const members = raceMembers(roster);
-    // Separate cryptographic draws: physical conditions are never derived from identity order.
-    const ordered = shuffled(members);
-    const seed = freshSeed();
-    const next = { members: ordered, seed, sequence: ++sequence.current };
-    locked.current = true;
-    setFrame(null);
-    setCountdown(COUNTDOWN_SECONDS);
-    setSetup(next);
-    return { participants: ordered.map((p) => p.name), status: 'countdown' };
-  }, []);
+  const previousMarbleSeed = useRef(MARBLE_PREVIEW_SEED);
+  const start = useCallback(
+    (roster: Member[]) => {
+      if (locked.current) throw new Error('Заезд уже идёт.');
+      const members = raceMembers(roster);
+      // Separate cryptographic draws: physical conditions are never derived from identity order.
+      const ordered = shuffled(members);
+      const seed =
+        mode === 'marbles'
+          ? nextMarbleSeed(previousMarbleSeed.current)
+          : freshSeed();
+      if (mode === 'marbles') previousMarbleSeed.current = seed;
+      const next = { members: ordered, seed, sequence: ++sequence.current };
+      locked.current = true;
+      setFrame(null);
+      setCountdown(COUNTDOWN_SECONDS);
+      setSetup(next);
+      return { participants: ordered.map((p) => p.name), status: 'countdown' };
+    },
+    [mode],
+  );
   const reset = useCallback(() => {
     if (locked.current) return;
     setSetup(null);

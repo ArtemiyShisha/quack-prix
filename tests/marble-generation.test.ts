@@ -56,15 +56,15 @@ void test('generated sections connect continuously and stay downhill', () => {
   for (const seed of [1, 42, 100, 310, 999, 0xffffffff]) {
     const c = generate(seed);
     assert.equal(c.sections[0].from, -5);
-    assert.equal(c.sections.at(-1)?.to, c.FUNNEL.z);
+    assert.equal(c.sections.at(-1)?.to, c.pathLength);
     for (let i = 1; i < c.sections.length; i++)
       assert.equal(c.sections[i - 1].to, c.sections[i].from);
-    for (let z = -5; z < c.FUNNEL.z; z += 0.25) {
+    for (let z = -5; z < c.pathLength; z += 0.25) {
       const p = c.mainCentre(z),
         q = c.mainCentre(z + 0.25);
       assert.ok(q.y < p.y, `uphill section at seed ${seed}, z ${z}`);
       assert.ok(
-        Math.abs(q.x - p.x) < 0.8,
+        Math.hypot(q.x - p.x, q.z - p.z) < 0.3,
         'a join must not create a sideways jump',
       );
       assert.ok(
@@ -116,10 +116,10 @@ void test('following generated courses keeps the visible racing surface unobstru
     );
     try {
       for (const aspect of [0.6, 1.5])
-        for (let z = 0; z < c.FUNNEL.z - 12; z += 2) {
+        for (let z = 0; z < c.pathLength - 12; z += 2) {
           const pose = followCamera(z, aspect, c),
             p = c.mainCentre(z);
-          const target = new Vector3(p.x, p.y + track.MARBLE_RADIUS, z);
+          const target = new Vector3(p.x, p.y + track.MARBLE_RADIUS, p.z);
           const ray = new Raycaster(
             pose.position,
             target.clone().sub(pose.position).normalize(),
@@ -166,10 +166,10 @@ void test('generated courses remain visible in overview, follow and finale camer
         for (let i = 0; i < mesh.positions.length; i += 30)
           vertices.push(new Vector3(...mesh.positions.slice(i, i + 3)));
       check(overviewCamera(aspect, c), vertices);
-      for (let z = 0; z < c.FUNNEL.z - 12; z += 5) {
+      for (let z = 0; z < c.pathLength - 12; z += 5) {
         const p = c.mainCentre(z);
         check(followCamera(z, aspect, c), [
-          new Vector3(p.x, p.y + track.MARBLE_RADIUS, z),
+          new Vector3(p.x, p.y + track.MARBLE_RADIUS, p.z),
         ]);
       }
       check(finaleCamera(aspect, c), [
@@ -187,6 +187,8 @@ void test('different generated courses finish naturally for small and full teams
     [4, 100],
     [4, 1002],
     [8, 310],
+    [1, 2],
+    [8, 2],
   ]) {
     const race = new MarbleSimulation(count, seed);
     try {
@@ -197,8 +199,10 @@ void test('different generated courses finish naturally for small and full teams
           assert.ok(
             [p.x, p.y, p.z, p.progress].every(Number.isFinite) &&
               p.y > -2 &&
-              Math.abs(p.x) < 30 &&
-              p.z > -10,
+              p.x > race.course.bounds.minX - 2 &&
+              p.x < race.course.bounds.maxX + 2 &&
+              p.z > race.course.bounds.minZ - 2 &&
+              p.z < race.course.bounds.maxZ + 2,
             `escape seed ${seed}, count ${count}, time ${frame.elapsed}, pos ${p.x},${p.y},${p.z}`,
           );
       }

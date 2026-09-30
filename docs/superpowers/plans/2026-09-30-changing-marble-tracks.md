@@ -1,5 +1,7 @@
 # Changing Marble Tracks Implementation Plan
 
+The first implementation was completed, then rejected by the user after visual review. The current course redesign and final checks are recorded in `2026-09-30-marble-attractions.md`; the spec has been updated to the final three-form design.
+
 > Execute inline using superpowers:executing-plans and superpowers:test-driven-development. The user has selected and authorized this design.
 
 **Goal:** Generate a visibly different, physically traversable 3D marble course before each race.

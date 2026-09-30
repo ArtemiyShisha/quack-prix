@@ -5,6 +5,7 @@ import {
   Box,
   Cylinder,
   Vec3,
+  Quaternion,
   Trimesh,
   SAPBroadphase,
   GSSolver,
@@ -32,12 +33,15 @@ export type MarbleState = {
   shortcut: boolean;
   stage: number;
   progress: number;
+  parameter: number;
 };
 export type MarbleFrame = Frame & {
   courseSeed: number | null;
   marbles: MarbleState[];
   paddleAngle: number;
   bumperX: number[];
+  bumperZ: number[];
+  rotorAngles: number[];
   finishGateAngle: number;
 };
 export class MarbleSimulation {
@@ -48,6 +52,7 @@ export class MarbleSimulation {
   private finishGate: Body;
   private phase: number;
   private bumpers: Body[];
+  private rotators: Body[];
   private ranks: number[];
   private stages: number[];
   private ticks = 0;
@@ -107,27 +112,50 @@ export class MarbleSimulation {
     this.phase = random() * Math.PI * 2;
     this.bumpers = this.course.BUMPERS.map((b, i) => {
       const body = add(
-        new Cylinder(b.radius, b.radius, 1.8, 20),
-        b.x + 0.8 * Math.sin(this.phase + i * 1.7),
+        new Cylinder(b.radius, b.radius, b.height, 20),
+        b.x + b.nx * b.amplitude * Math.sin(this.phase + i * 1.7),
         b.y,
-        b.z,
+        b.z + b.nz * b.amplitude * Math.sin(this.phase + i * 1.7),
       );
       body.type = Body.KINEMATIC;
       return body;
     });
+    this.rotators = this.course.ROTATORS.map((r) => {
+      const body = new Body({
+        type: Body.KINEMATIC,
+        material: surface,
+        position: new Vec3(r.x, r.y, r.z),
+      });
+      for (let i = 0; i < r.blades; i++) {
+        const orientation = new Quaternion().setFromAxisAngle(
+          Vec3.UNIT_Y,
+          (i * Math.PI) / 2,
+        );
+        body.addShape(
+          new Box(new Vec3(r.length / 2, r.height / 2, r.width / 2)),
+          Vec3.ZERO,
+          orientation,
+        );
+      }
+      body.quaternion.setFromAxisAngle(Vec3.UNIT_Y, this.phase + r.phase);
+      body.angularVelocity.set(0, r.speed, 0);
+      this.world.addBody(body);
+      return body;
+    });
     const p = this.course.ISLAND_3D;
-    add(
+    const islandBody = add(
       new Box(new Vec3(p.radius, p.height / 2, p.halfLength)),
       p.x,
       p.y + p.height / 2,
       p.z,
     );
+    islandBody.quaternion.setFromAxisAngle(Vec3.UNIT_Y, p.angle);
     for (const direction of [-1, 1])
       add(
         new Cylinder(p.radius, p.radius, p.height, 24),
-        p.x,
+        p.x + Math.sin(p.angle) * p.halfLength * direction,
         p.y + p.height / 2,
-        p.z + p.halfLength * direction,
+        p.z + Math.cos(p.angle) * p.halfLength * direction,
       );
     const gate = this.course.PADDLE_3D;
     this.paddle = new Body({
@@ -229,7 +257,10 @@ export class MarbleSimulation {
       );
     return Math.max(
       0,
-      Math.min(2599, ((p.z + 3) / (this.course.FUNNEL.z + 3)) * 2600),
+      Math.min(
+        2599,
+        ((this.course.progressAt(p) + 3) / (this.course.pathLength + 3)) * 2600,
+      ),
     );
   }
   snapshot(): MarbleFrame {
@@ -243,14 +274,10 @@ export class MarbleSimulation {
       qz: b.quaternion.z,
       qw: b.quaternion.w,
       speed: b.velocity.length(),
-      shortcut:
-        b.position.z > this.course.shortcutFrom &&
-        b.position.z < this.course.shortcutTo &&
-        b.position.y < this.course.mainCentre(b.position.z).y - 0.8 &&
-        Math.abs(b.position.x - this.course.shortcutCentre(b.position.z).x) <
-          this.course.shortcutWidth(b.position.z),
+      shortcut: this.course.shortcutAt(b.position),
       stage: this.stages[slot],
       progress: this.progress(slot),
+      parameter: this.course.progressAt(b.position),
     }));
     return {
       elapsed: this.ticks / 120,
@@ -259,6 +286,10 @@ export class MarbleSimulation {
       paddleAngle:
         2 * Math.atan2(this.paddle.quaternion.y, this.paddle.quaternion.w),
       bumperX: this.bumpers.map((b) => b.position.x),
+      bumperZ: this.bumpers.map((b) => b.position.z),
+      rotorAngles: this.rotators.map(
+        (b) => 2 * Math.atan2(b.quaternion.y, b.quaternion.w),
+      ),
       finishGateAngle:
         2 *
         Math.atan2(this.finishGate.quaternion.y, this.finishGate.quaternion.w),
@@ -300,8 +331,15 @@ export class MarbleSimulation {
           ((this.ticks + 1) / 120) * this.course.bumperSpeed +
           this.phase +
           i * 1.7;
-        const nextX = this.course.BUMPERS[i].x + 0.8 * Math.sin(angle);
-        body.velocity.set((nextX - body.position.x) * 120, 0, 0);
+        const b = this.course.BUMPERS[i],
+          offset = b.amplitude * Math.sin(angle);
+        const nextX = b.x + b.nx * offset,
+          nextZ = b.z + b.nz * offset;
+        body.velocity.set(
+          (nextX - body.position.x) * 120,
+          0,
+          (nextZ - body.position.z) * 120,
+        );
       });
       this.world.step(1 / 120);
       this.ticks++;

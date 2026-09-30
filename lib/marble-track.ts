@@ -6,13 +6,23 @@ export type TrackMesh = {
   opacity?: number;
   edges: Point3[][];
 };
-import { createLayout } from './marble-layout.ts';
+import { createLegacyLayout } from './marble-layout.ts';
+import { createMarblePark } from './marble-park.ts';
 
 export const MARBLE_RADIUS = 0.48;
 export const MARBLE_MAX_SECONDS = 75;
 
-function buildCourse(seed?: number) {
-  const layout = createLayout(seed);
+export type RotatingGate = Point3 & {
+  distance: number;
+  length: number;
+  width: number;
+  height: number;
+  blades: number;
+  speed: number;
+  phase: number;
+};
+function buildLegacyCourse() {
+  const layout = createLegacyLayout();
   const mapZ = layout.mapZ;
   const MARBLE_FINISH_Z = mapZ(128);
   const PADDLE_SPEED = layout.paddleSpeed;
@@ -248,14 +258,7 @@ function buildCourse(seed?: number) {
     '#ef9988',
     0.28,
   );
-  const TRACK_MESHES: TrackMesh[] = [
-    ...mainSections,
-    ...mainSections.map((section) => guards(section)),
-    shortcut,
-    merge,
-    // Upper-bank racers enter three units above the lower floor. This shared
-    // collision/render wall catches that entry height while the floor rises.
-    guards(merge, seed === undefined ? 3 : 8),
+  const FINISH_MESHES = [
     funnel(),
     runout,
     guards({
@@ -265,16 +268,36 @@ function buildCourse(seed?: number) {
       ),
     }),
   ];
+  const TRACK_MESHES: TrackMesh[] = [
+    ...mainSections,
+    ...mainSections.map((section) => guards(section)),
+    shortcut,
+    merge,
+    guards(merge),
+    ...FINISH_MESHES,
+  ];
   const BUMPERS = layout.bumpers.map(({ z, offset, radius }) => {
     const p = mainCentre(z);
-    return { ...p, x: p.x + offset, y: p.y + 0.9, radius };
+    return {
+      ...p,
+      x: p.x + offset,
+      y: p.y + 0.9,
+      radius,
+      height: 1.8,
+      amplitude: 0.8,
+      nx: 1,
+      nz: 0,
+      distance: z,
+    };
   });
+  const ROTATORS: RotatingGate[] = [];
   const ISLAND_3D = {
     ...mainCentre(mapZ(37)),
     height: 3.3,
     y: mainCentre(mapZ(37)).y - 1.5,
     radius: 1.05,
     halfLength: 2.3,
+    angle: 0,
   };
   const PADDLE_3D = {
     ...mainCentre(mapZ(46)),
@@ -298,7 +321,20 @@ function buildCourse(seed?: number) {
   }
 
   return {
-    seed: seed ?? null,
+    style: 'Классическая трасса',
+    pathLength: FUNNEL.z,
+    troughHeight,
+    FINISH_MESHES,
+    hasShortcut: true,
+    bounds: { minX: -25, maxX: 25, minZ: -10, maxZ: MARBLE_FINISH_Z + 5 },
+    progressAt: (p: Point3) => p.z,
+    cameraBack: (_s: number) => ({ x: 0.18, z: 0.4 }),
+    shortcutAt: (p: Point3) =>
+      p.z > mapZ(33) &&
+      p.z < mapZ(66) &&
+      p.y < mainCentre(p.z).y - 0.8 &&
+      Math.abs(p.x - shortcutCentre(p.z).x) < shortcutWidth(p.z),
+    seed: null as number | null,
     name: layout.name,
     sections: layout.sections,
     shortcutFrom: mapZ(33),
@@ -312,6 +348,7 @@ function buildCourse(seed?: number) {
     FUNNEL,
     PADDLE_SPEED,
     BUMPERS,
+    ROTATORS,
     ISLAND_3D,
     PADDLE_3D,
     mainCentre,
@@ -328,11 +365,11 @@ function buildCourse(seed?: number) {
     SHORTCUT_ENTRY,
   };
 }
-export type MarbleCourse = ReturnType<typeof buildCourse>;
+export type MarbleCourse = ReturnType<typeof buildLegacyCourse>;
 export function createMarbleCourse(seed: number): MarbleCourse {
-  return buildCourse(seed >>> 0);
+  return createMarblePark(seed >>> 0, LEGACY_MARBLE_COURSE);
 }
-export const LEGACY_MARBLE_COURSE = buildCourse();
+export const LEGACY_MARBLE_COURSE = buildLegacyCourse();
 export const {
   TRACK_MESHES,
   MARBLE_FINISH_Z,

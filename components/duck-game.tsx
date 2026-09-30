@@ -43,7 +43,7 @@ export function DuckGame({
   const [storageOk, setStorageOk] = useState(true);
   const [error, setError] = useState('');
   const [sound, setSound] = useState(false);
-  const [overview, setOverview] = useState(false);
+  const [overview, setOverview] = useState(is3d);
   const race = useRace(mode, !is3d || sceneReady);
   const { setup, frame, countdown, running, paused } = race;
   const result = frame?.result;

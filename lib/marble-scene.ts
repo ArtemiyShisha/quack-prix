@@ -24,6 +24,7 @@ export function createMarbleScene(
   const {
     TRACK_MESHES,
     BUMPERS,
+    ROTATORS,
     ISLAND_3D,
     PADDLE_3D,
     FUNNEL,
@@ -78,8 +79,20 @@ export function createMarbleScene(
     near: 0.5,
     far: FUNNEL.z + 130,
   });
+  if (course.seed !== null)
+    Object.assign(light.shadow.camera, {
+      left: -90,
+      right: 90,
+      top: 90,
+      bottom: -90,
+      far: 300,
+    });
   light.shadow.bias = -0.0005;
-  light.target.position.set(0, mainCentre(FUNNEL.z / 2).y, FUNNEL.z / 2);
+  light.target.position.set(
+    (course.bounds.minX + course.bounds.maxX) / 2,
+    mainCentre(course.pathLength / 2).y,
+    (course.bounds.minZ + course.bounds.maxZ) / 2,
+  );
   scene.add(
     light,
     light.target,
@@ -164,9 +177,41 @@ export function createMarbleScene(
   const grid = new THREE.GridHelper(240, 60, '#adcbdc', '#b9d3e2');
   grid.position.set(0, -3.99, 40);
   scene.add(grid);
-  for (let z = 0; z < FUNNEL.z - 6; z += 14) {
+  for (let z = 0; z < course.pathLength - 6; z += 18) {
     const p = mainCentre(z),
       h = p.y + 4;
+    if (course.seed !== null) {
+      const next = mainCentre(z + 0.01),
+        angle = Math.atan2(next.x - p.x, next.z - p.z),
+        width = mainWidth(z) + 0.8;
+      for (const side of [-1, 1]) {
+        const x = p.x + Math.cos(angle) * width * side,
+          s = p.z - Math.sin(angle) * width * side;
+        mesh(
+          new THREE.CylinderGeometry(0.28, 0.42, h, 10),
+          support,
+          x,
+          p.y - h / 2,
+          s,
+        );
+        mesh(
+          new THREE.CylinderGeometry(0.85, 0.85, 0.22, 16),
+          white,
+          x,
+          -3.85,
+          s,
+        );
+      }
+      const beam = mesh(
+        new THREE.BoxGeometry(width * 2, 0.3, 0.5),
+        white,
+        p.x,
+        p.y - 0.35,
+        p.z,
+      );
+      beam.rotation.y = angle;
+      continue;
+    }
     const lower =
       z >= course.shortcutFrom && z <= course.mergeTo ? shortcutCentre(z) : p;
     const lowerWidth =
@@ -208,7 +253,7 @@ export function createMarbleScene(
   mesh(new THREE.BoxGeometry(7, 1.2, 0.3), white, FUNNEL.x, 2.1, RUNOUT_START);
   const bumperMeshes = BUMPERS.map((b) => [
     mesh(
-      new THREE.CylinderGeometry(b.radius, b.radius, 1.8, 24),
+      new THREE.CylinderGeometry(b.radius, b.radius, b.height, 24),
       peach,
       b.x,
       b.y,
@@ -218,12 +263,34 @@ export function createMarbleScene(
       new THREE.CylinderGeometry(b.radius * 0.75, b.radius * 0.75, 0.12, 24),
       white,
       b.x,
-      b.y + 0.92,
+      b.y + b.height / 2 + 0.02,
       b.z,
     ),
   ]);
+  const rotorMeshes = ROTATORS.map((r, i) => {
+    const colour = material(i % 2 ? '#ee6388' : '#8d59cf', 0.25);
+    const parts = Array.from({ length: r.blades }, (_, blade) => {
+      const part = mesh(
+        new THREE.BoxGeometry(r.length, r.height, r.width),
+        colour,
+        r.x,
+        r.y,
+        r.z,
+      );
+      part.rotation.y = r.phase + (blade * Math.PI) / 2;
+      return part;
+    });
+    mesh(
+      new THREE.CylinderGeometry(0.55, 0.55, 0.3, 20),
+      white,
+      r.x,
+      r.y + r.height / 2 + 0.15,
+      r.z,
+    );
+    return parts;
+  });
   const island = ISLAND_3D;
-  mesh(
+  const islandMesh = mesh(
     new THREE.BoxGeometry(
       island.radius * 2,
       island.height,
@@ -234,6 +301,7 @@ export function createMarbleScene(
     island.y + island.height / 2,
     island.z,
   );
+  islandMesh.rotation.y = island.angle;
   for (const sign of [-1, 1])
     mesh(
       new THREE.CylinderGeometry(
@@ -243,9 +311,9 @@ export function createMarbleScene(
         32,
       ),
       peach,
-      island.x,
+      island.x + Math.sin(island.angle) * island.halfLength * sign,
       island.y + island.height / 2,
-      island.z + island.halfLength * sign,
+      island.z + Math.cos(island.angle) * island.halfLength * sign,
     );
   const gate = PADDLE_3D,
     paddle = mesh(
@@ -278,34 +346,36 @@ export function createMarbleScene(
       peg.z,
     );
   }
-  const rim: THREE.Vector3[] = [];
-  const entry = SHORTCUT_ENTRY;
-  for (const [x, z] of [
-    [entry.x - entry.halfWidth, entry.z - entry.halfLength],
-    [entry.x + entry.halfWidth, entry.z - entry.halfLength],
-    [entry.x + entry.halfWidth, entry.z + entry.halfLength],
-    [entry.x - entry.halfWidth, entry.z + entry.halfLength],
-    [entry.x - entry.halfWidth, entry.z - entry.halfLength],
-  ])
-    rim.push(
-      new THREE.Vector3(
-        x,
-        mainCentre(z).y +
-          troughHeight((x - mainCentre(z).x) / mainWidth(z)) +
-          0.07,
-        z,
+  if (course.hasShortcut) {
+    const rim: THREE.Vector3[] = [];
+    const entry = SHORTCUT_ENTRY;
+    for (const [x, z] of [
+      [entry.x - entry.halfWidth, entry.z - entry.halfLength],
+      [entry.x + entry.halfWidth, entry.z - entry.halfLength],
+      [entry.x + entry.halfWidth, entry.z + entry.halfLength],
+      [entry.x - entry.halfWidth, entry.z + entry.halfLength],
+      [entry.x - entry.halfWidth, entry.z - entry.halfLength],
+    ])
+      rim.push(
+        new THREE.Vector3(
+          x,
+          mainCentre(z).y +
+            troughHeight((x - mainCentre(z).x) / mainWidth(z)) +
+            0.07,
+          z,
+        ),
+      );
+    mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3(rim, false, 'centripetal'),
+        48,
+        0.1,
+        6,
+        false,
       ),
+      material('#29bba1'),
     );
-  mesh(
-    new THREE.TubeGeometry(
-      new THREE.CatmullRomCurve3(rim, false, 'centripetal'),
-      48,
-      0.1,
-      6,
-      false,
-    ),
-    material('#29bba1'),
-  );
+  }
   const finaleGate = mesh(
     new THREE.BoxGeometry(
       FINISH_GATE.length,
@@ -443,20 +513,30 @@ export function createMarbleScene(
     });
     paddle.rotation.y = frame?.paddleAngle ?? 0.4;
     finaleGate.rotation.y = frame?.finishGateAngle ?? 0.78;
+    rotorMeshes.forEach((parts, i) =>
+      parts.forEach((part, blade) => {
+        part.rotation.y =
+          (frame?.rotorAngles?.[i] ?? ROTATORS[i].phase) +
+          (blade * Math.PI) / 2;
+      }),
+    );
     bumperMeshes.forEach((pair, i) =>
       pair.forEach((m) => {
         m.position.x = frame?.bumperX[i] ?? BUMPERS[i].x;
+        m.position.z = frame?.bumperZ?.[i] ?? BUMPERS[i].z;
       }),
     );
     const leader = frame?.marbles.reduce((a, b) =>
       a.progress > b.progress ? a : b,
     );
-    const inFinale = leader && (leader.stage > 0 || leader.z >= FUNNEL.z - 12);
+    const inFinale =
+      leader &&
+      (leader.stage > 0 || leader.parameter >= course.pathLength - 12);
     const pose = overview
       ? wholePose
       : inFinale
         ? finalPose
-        : followCamera(leader?.z ?? 0, camera.aspect, course);
+        : followCamera(leader?.parameter ?? 0, camera.aspect, course);
     if (lastOverview !== overview) {
       lastOverview = overview;
       controls.enabled = overview;

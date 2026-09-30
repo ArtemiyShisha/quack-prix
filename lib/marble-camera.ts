@@ -62,7 +62,12 @@ export function finaleCamera(
   course: MarbleCourse = LEGACY_MARBLE_COURSE,
 ): CameraPose {
   return fit(
-    pointsFor(course).filter((p) => p.z >= course.FUNNEL.z - 12),
+    pointsFor(course).filter((p) =>
+      course.seed === null
+        ? p.z >= course.FUNNEL.z - 12
+        : p.y < 22 &&
+          Math.hypot(p.x - course.FUNNEL.x, p.z - course.FUNNEL.z) < 40,
+    ),
     aspect,
     new Vector3(-0.3, 1, 0.2),
   );
@@ -72,22 +77,32 @@ export function followCamera(
   aspect: number,
   course: MarbleCourse = LEGACY_MARBLE_COURSE,
 ): CameraPose {
-  const { FUNNEL, mainCentre, mainWidth, shortcutCentre, shortcutWidth } =
-    course;
+  const { mainCentre, mainWidth, shortcutCentre, shortcutWidth } = course;
   const points: Vector3[] = [];
-  for (let s = Math.max(-5, z - 10); s <= Math.min(FUNNEL.z, z + 15); s += 1) {
+  for (
+    let s = Math.max(-5, z - 10);
+    s <= Math.min(course.pathLength, z + 15);
+    s += 1
+  ) {
     const p = mainCentre(s),
       width = mainWidth(s) + 1.5;
-    if (s >= course.shortcutFrom && s <= course.mergeTo) {
+    if (course.hasShortcut && s >= course.shortcutFrom && s <= course.mergeTo) {
       const lower = shortcutCentre(s),
         half = shortcutWidth(s);
       points.push(
-        new Vector3(lower.x - half, lower.y, s),
-        new Vector3(lower.x + half, lower.y + 2, s),
+        new Vector3(lower.x - half, lower.y, lower.z),
+        new Vector3(lower.x + half, lower.y + 2, lower.z),
       );
     }
     for (const x of [-width, width])
-      for (const y of [0, 5]) points.push(new Vector3(p.x + x, p.y + y, s));
+      for (const y of [0, 5]) points.push(new Vector3(p.x + x, p.y + y, p.z));
   }
-  return fit(points, aspect, new Vector3(0.18, 1, 0.4));
+  const back = course.cameraBack(z);
+  return fit(
+    points,
+    aspect,
+    course.seed === null
+      ? new Vector3(0.18, 1, 0.4)
+      : new Vector3(back.x * 0.75, 1.3, back.z * 0.75),
+  );
 }

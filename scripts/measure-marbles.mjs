@@ -43,7 +43,15 @@ for (const n of counts) {
           ),
           `nonfinite n=${n} seed=${seed}`,
         );
-        if (p.y < -2 || Math.abs(p.x) > 30 || p.z < -10) escaped.add(p.slot);
+        const bounds = race.course.bounds;
+        if (
+          p.y < -2 ||
+          p.x < bounds.minX - 2 ||
+          p.x > bounds.maxX + 2 ||
+          p.z < bounds.minZ - 2 ||
+          p.z > bounds.maxZ + 2
+        )
+          escaped.add(p.slot);
         if (first === null && p.stage === 1) first = p.slot;
         if (Math.round(frame.elapsed * 120) % 12 === 0) speeds.push(p.speed);
       }

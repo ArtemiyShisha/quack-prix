@@ -5,6 +5,7 @@ import type { MarbleFrame } from '@/lib/marble-race';
 import type { Member } from '@/lib/roster';
 import type { createMarbleScene } from '@/lib/marble-scene';
 import { createMarbleCourse } from '@/lib/marble-track';
+import { MARBLE_PREVIEW_SEED } from '@/lib/marble-path';
 import { appUrl } from '@/lib/urls';
 export function MarbleTrack({
   members,
@@ -17,7 +18,8 @@ export function MarbleTrack({
   overview: boolean;
   onReady: (ready: boolean) => void;
 }) {
-  const courseSeed = (frame as MarbleFrame | null)?.courseSeed ?? 20260930;
+  const courseSeed =
+    (frame as MarbleFrame | null)?.courseSeed ?? MARBLE_PREVIEW_SEED;
   const course = useMemo(() => createMarbleCourse(courseSeed), [courseSeed]);
   const host = useRef<HTMLDivElement>(null),
     scene = useRef<ReturnType<typeof createMarbleScene> | null>(null);
