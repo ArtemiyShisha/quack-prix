@@ -54,4 +54,4 @@ Consumes: frame seed. Produces: new course rendered for every start, matching ph
 - [x] Run `npm test`, `npx tsc --noEmit`, `npm run build:pages`, `git diff --check`.
 - [x] Open the local game, enter participants, run two races, inspect different tracks, finish results and both routes. Capture screenshots and check browser errors.
 - [x] Document actual measurements and prepare the tested build.
-- [ ] Transfer the verified branch into the original project after checking its clean baseline.
+- [x] Transfer the verified branch into the original project after checking its clean baseline.
