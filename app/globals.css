@@ -331,14 +331,6 @@ h1 {
 .roster-row input::placeholder {
   color: #92a5ae;
 }
-.row-number {
-  position: absolute;
-  right: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #9cafb7;
-  pointer-events: none;
-}
 .saved-note {
   display: flex;
   align-items: center;
@@ -372,22 +364,6 @@ h1 {
   color: #8ba0aa;
   box-shadow: 0 3px 0 #d9e3e8;
   opacity: 1;
-}
-.fairness-note {
-  display: flex;
-  align-items: start;
-  gap: 8px;
-  color: #80949d;
-  margin-top: 21px;
-}
-.fairness-note svg {
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-.fairness-note p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.6;
 }
 .race-heading {
   display: flex;
@@ -454,29 +430,6 @@ h2 {
   font-family: var(--font-geist-mono);
   color: #527582;
   font-size: 14px;
-}
-.race-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 14px;
-  overflow: hidden;
-}
-.board-label {
-  fill: #397f97;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 3px;
-}
-.stage-number {
-  fill: #559fb9;
-  font-size: 16px;
-  font-weight: 700;
-}
-.duck-label {
-  fill: #204f63;
-  font-size: 17px;
-  font-weight: 700;
 }
 .race-footer {
   display: flex;
@@ -563,12 +516,6 @@ h2 {
   }
   .saved-note {
     margin: 16px 0;
-  }
-  .fairness-note {
-    margin-top: 15px;
-  }
-  .fairness-note br {
-    display: none;
   }
   .race-heading {
     padding-bottom: 14px;
@@ -663,16 +610,6 @@ h2 {
   gap: 8px;
   align-items: center;
 }
-.overview-button {
-  height: 42px;
-  border: 1px solid #d9e7ec;
-  border-radius: 12px;
-  background: #fff;
-  font-size: 13px;
-  color: #50717f;
-  padding: 0 12px;
-  gap: 7px;
-}
 .progress-track {
   height: 4px;
   background: #d9edf5;
@@ -715,16 +652,6 @@ h2 {
   font-weight: 700;
   color: #27667d;
   margin-top: 20px;
-}
-.winner-overlay {
-  position: absolute;
-  inset: 42px 0 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #b6e9f382;
-  backdrop-filter: blur(3px);
-  padding: 20px;
 }
 .winner-card {
   width: 340px;
@@ -780,22 +707,6 @@ h2 {
   border-radius: 12px;
   font-size: 14px;
 }
-.race-svg {
-  background: #9cddef;
-}
-.board-label {
-  font-size: 16px;
-  letter-spacing: 2px;
-}
-.pool-caption {
-  fill: #266483;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-.duck-label {
-  font-size: 17px;
-}
 .team-intro {
   font-size: 15px;
 }
@@ -809,13 +720,6 @@ h2 {
   font-size: 13px;
 }
 @media (max-width: 1000px) {
-  .overview-button {
-    width: 42px;
-    padding: 0;
-  }
-  .overview-button span {
-    display: none;
-  }
   .race-heading h2 {
     font-size: 23px;
   }
@@ -848,9 +752,6 @@ h2 {
   }
   .race-panel {
     scroll-margin-top: 16px;
-  }
-  .winner-overlay {
-    padding: 10px;
   }
   .winner-card {
     padding: 14px;
@@ -885,79 +786,12 @@ h2 {
   .view-controls {
     gap: 6px;
   }
-  .overview-button,
   .sound-button {
     height: 37px;
     width: 37px;
   }
 }
-.mode-switch {
-  display: flex;
-  gap: 8px;
-  margin-top: 22px;
-  flex-wrap: wrap;
-}
-.mode-switch a {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 17px;
-  border: 1px solid #ccdee7;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  background: #f7fbfd;
-  color: #65808d;
-  text-decoration: none;
-}
-.mode-switch a[aria-current='page'] {
-  background: #244f69;
-  border-color: #244f69;
-  color: white;
-  box-shadow: 0 3px 0 #17394e;
-}
-.mode-switch a span {
-  font-size: 10px;
-  letter-spacing: 1px;
-  background: #ffd77d;
-  color: #765320;
-  padding: 3px 6px;
-  border-radius: 4px;
-}
-.mode-switch + .game-layout {
-  padding-top: 24px;
-}
-.marble-stage {
-  position: relative;
-  height: clamp(400px, 65vw, 720px);
-  background: #dceaf2;
-  border-radius: 14px;
-  overflow: hidden;
-}
-.marble-canvas {
-  position: absolute;
-  inset: 0;
-}
-.marble-canvas canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
-}
-.marble-camera-hint {
-  position: absolute;
-  bottom: 15px;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  pointer-events: none;
-  background: #ffffffc9;
-  color: #476a80;
-  padding: 7px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-}
-.marble-message {
+.pinball-message {
   position: absolute;
   inset: 0;
   display: flex;
@@ -970,37 +804,26 @@ h2 {
   background: #dceaf2;
   color: #31546a;
 }
-.marble-message strong {
+.pinball-message strong {
   font-size: 22px;
 }
-.marble-message p {
+.pinball-message p {
   max-width: 360px;
   line-height: 1.5;
   margin: 0;
 }
-.marble-message a {
+.pinball-message a {
   color: #b5492c;
   text-decoration: underline;
   font-weight: 700;
 }
-@media (max-width: 740px) {
-  .marble-stage {
-    height: 490px;
-  }
-  .marble-camera-hint {
-    font-size: 11px;
-    max-width: 95%;
-    white-space: normal;
-    text-align: center;
-  }
-}
 
-.marble-result {
+.pinball-result {
   background: #fffdf5;
   border-top: 1px solid #d7e3e7;
   padding: 18px 22px;
 }
-.marble-result .winner-card {
+.pinball-result .winner-card {
   display: grid;
   grid-template-columns: 56px 1fr auto;
   column-gap: 16px;
@@ -1013,373 +836,46 @@ h2 {
   box-shadow: none;
   text-align: left;
 }
-.marble-result .winner-card > img {
+.pinball-result .winner-card > img {
   grid-column: 1;
   grid-row: 1 / 4;
   width: 56px;
   height: 64px;
   margin: 0;
 }
-.marble-result .winner-kicker {
+.pinball-result .winner-kicker {
   grid-column: 2;
   font-size: 10px;
   letter-spacing: 1px;
 }
-.marble-result h3 {
+.pinball-result h3 {
   grid-column: 2;
   font-size: 25px;
 }
-.marble-result .winner-card p {
+.pinball-result .winner-card p {
   display: none;
 }
-.marble-result .winner-time {
+.pinball-result .winner-time {
   grid-column: 2;
   font-size: 12px;
 }
-.marble-result .winner-again {
+.pinball-result .winner-again {
   grid-column: 3;
   grid-row: 1 / 4;
   margin: 0;
 }
 @media (max-width: 600px) {
-  .marble-result .winner-card {
+  .pinball-result .winner-card {
     grid-template-columns: 44px 1fr;
     gap: 4px 12px;
   }
-  .marble-result .winner-card > img {
+  .pinball-result .winner-card > img {
     width: 44px;
   }
-  .marble-result .winner-again {
+  .pinball-result .winner-again {
     grid-column: 1 / 3;
     grid-row: 4;
     margin-top: 8px;
-  }
-}
-
-.marble-route {
-  position: absolute;
-  top: 14px;
-  left: 16px;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  max-width: calc(100% - 32px);
-  padding: 9px 12px;
-  border-radius: 12px;
-  background: rgb(255 255 255 / 82%);
-  color: #4c5266;
-  pointer-events: none;
-}
-.marble-route span {
-  font-size: 11px;
-}
-.marble-route strong {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.curling-stage {
-  background: #e7f2f8;
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.ice-game {
-  background: #eaf5f9;
-}
-.ice-stage {
-  position: relative;
-  height: clamp(440px, 47vw, 620px);
-  overflow: hidden;
-  background: #d9eef4;
-  border-radius: 14px;
-}
-.ice-canvas {
-  position: absolute;
-  inset: 0;
-}
-.ice-canvas canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  touch-action: none;
-}
-.ice-hud {
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  pointer-events: none;
-  padding: 12px 16px;
-  border: 1px solid #ffffffaa;
-  border-radius: 14px;
-  background: #f7fdffde;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 18px #315e7812;
-  color: #2d5e76;
-}
-.ice-hud > span {
-  display: block;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  color: #6d8e9e;
-  margin-bottom: 4px;
-}
-.ice-hud > strong {
-  font-size: 14px;
-}
-.ice-danger {
-  position: absolute;
-  right: 18px;
-  top: 24px;
-  width: 110px;
-  height: 7px;
-  background: #ffffffb0;
-  border-radius: 5px;
-  pointer-events: none;
-}
-.ice-danger > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #e98763;
-}
-.ice-danger > b {
-  display: block;
-  margin-top: 7px;
-  font-size: 9px;
-  font-weight: 800;
-  color: #597f91;
-  letter-spacing: 1.5px;
-  text-align: right;
-}
-.ice-camera-hint {
-  position: absolute;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 92%;
-  width: max-content;
-  padding: 8px 13px;
-  border-radius: 8px;
-  background: #f7fdffb8;
-  color: #477184;
-  font-size: 11px;
-  text-align: center;
-  pointer-events: none;
-}
-.ice-roster {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
-  padding: 16px;
-  gap: 8px;
-  border-top: 1px solid #cce5ed;
-}
-.ice-player {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #cfe2e9;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #faffff;
-  min-width: 0;
-  color: #396477;
-  font-size: 12px;
-}
-.ice-player-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.ice-player > b {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ice-player > span:last-child {
-  margin-left: auto;
-  white-space: nowrap;
-  font-size: 10px;
-  color: #6c8b9a;
-}
-.ice-player.is-out {
-  opacity: 0.5;
-  background: #e0ecf1;
-}
-.ice-player.is-winner {
-  opacity: 1;
-  background: #fff5d6;
-  border-color: #e8be65;
-}
-@media (max-width: 740px) {
-  .ice-stage {
-    height: 440px;
-  }
-  .ice-hud {
-    top: 12px;
-    left: 10px;
-    padding: 10px;
-  }
-  .ice-hud > strong {
-    font-size: 12px;
-  }
-  .ice-hud > span {
-    font-size: 8px;
-    letter-spacing: 0.7px;
-  }
-  .ice-danger {
-    width: 70px;
-    top: 19px;
-    right: 12px;
-  }
-  .ice-danger > b {
-    font-size: 8px;
-  }
-  .ice-roster {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 12px;
-  }
-  .ice-player {
-    padding: 9px;
-  }
-}
-.curling-scorebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px 22px;
-  color: #38627a;
-  background: #f3f9fc;
-  border-bottom: 1px solid #d5e5ee;
-  font-size: 12px;
-}
-.curling-scorebar > span {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  white-space: nowrap;
-}
-.curling-live-dot {
-  width: 6px;
-  height: 6px;
-  background: #429b9b;
-  border-radius: 50%;
-}
-.curling-rink {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1140 / 530;
-}
-.curling-rink-title {
-  fill: #426b83;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 2px;
-}
-.curling-rink-note {
-  fill: #59829a;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-}
-.curling-stone-name {
-  fill: #234b64;
-  font-size: 12px;
-  font-weight: 800;
-}
-.curling-lineup {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-  gap: 8px;
-  padding: 18px;
-  background: #f3f9fc;
-  border-top: 1px solid #bfd7e6;
-}
-.curling-player {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid #d5e4ed;
-  border-radius: 10px;
-  background: #fff;
-  font-size: 12px;
-  min-width: 0;
-}
-.curling-player.is-throwing {
-  border-color: #5e9dbd;
-  background: #e3f2fa;
-}
-.curling-player.is-winner {
-  border-color: #e7b352;
-  background: #fff6dc;
-}
-.curling-player-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
-}
-.curling-player-state {
-  color: #738f9f;
-  font-size: 10px;
-  margin-left: auto;
-  white-space: nowrap;
-}
-.curling-mini-stone {
-  width: 19px;
-  height: 19px;
-  flex-shrink: 0;
-  border: 3px solid #7b909f;
-  border-radius: 50%;
-  box-shadow: 0 2px 0 #425f72;
-}
-.curling-empty {
-  color: #68879a;
-  text-align: center;
-  padding: 5px;
-  font-size: 13px;
-}
-.curling-distances {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-  padding: 14px 20px;
-  border-top: 1px solid #d5e5ee;
-  background: #eaf4f9;
-  color: #607f93;
-  font-size: 12px;
-}
-.curling-distances > span:first-child {
-  display: flex;
-  align-items: center;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-.curling-distances b {
-  color: #315b74;
-  margin-right: 5px;
-  overflow-wrap: anywhere;
-}
-@media (max-width: 740px) {
-  .curling-scorebar {
-    padding: 13px 12px;
-    font-size: 11px;
-  }
-  .curling-scorebar strong {
-    text-align: right;
-  }
-  .curling-lineup {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 12px;
   }
 }
 
@@ -1506,34 +1002,6 @@ h2 {
   width: max-content;
   text-align: center;
   pointer-events: none;
-}
-.pinball-labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.pinball-ball-label {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  max-width: 108px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 3px 6px;
-  font-size: 10px;
-  line-height: 14px;
-  font-weight: 750;
-  color: #173b49;
-  background: #ffffffed;
-  border: 1px solid #ffffff;
-  border-bottom: 3px solid var(--ball-colour);
-  border-radius: 5px;
-  box-shadow: 0 2px 6px #0b24352e;
-}
-.pinball-ball-label.is-winner {
-  background: #fff0b4;
-  border-color: #efc761;
 }
 .pinball-roster {
   display: grid;

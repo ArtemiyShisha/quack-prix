@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { Frame } from '@/lib/race';
 import { initPinballPhysics } from '@/lib/pinball';
 import type { ArenaFrame } from '@/lib/pinball-arenas';
 import { DEFAULT_PINBALL_MAP, mapInfo } from '@/lib/pinball-maps';
@@ -18,7 +17,7 @@ export function PinballTable({
   sound,
 }: {
   members: Member[];
-  frame: Frame | null;
+  frame: ArenaFrame | null;
   onReady: (ready: boolean) => void;
   sound: boolean;
 }) {
@@ -29,8 +28,7 @@ export function PinballTable({
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>(
     'loading',
   );
-  const candidate = frame as ArenaFrame | null;
-  const pinball = candidate?.mapId === mapId ? candidate : null;
+  const pinball = frame?.mapId === mapId ? frame : null;
   const info = mapInfo(mapId);
   const players = members.filter((m) => m.active && m.name.trim());
   const leadingLevel = Math.max(0, ...(pinball?.stages ?? []));
@@ -74,9 +72,7 @@ export function PinballTable({
           scene.current = createPinballScene(host.current, failure, mapId);
           const current = latest.current;
           scene.current.update(
-            (current.frame as ArenaFrame | null)?.mapId === mapId
-              ? (current.frame as ArenaFrame)
-              : null,
+            current.frame?.mapId === mapId ? current.frame : null,
             current.members,
           );
           setStatus('ready');
@@ -159,16 +155,16 @@ export function PinballTable({
           </>
         )}
         {status === 'loading' && (
-          <output className="marble-message">Собираем кряк-машину…</output>
+          <output className="pinball-message">Собираем кряк-машину…</output>
         )}
         {status === 'failed' && (
-          <div className="marble-message" role="alert">
+          <div className="pinball-message" role="alert">
             <strong>3D здесь не запустился</strong>
             <p>
               Не удалось загрузить 3D-сцену или физику. Обнови страницу; для
               игры нужен WebGL 2.
             </p>
-            <a href={appUrl('/')}>Вернуться к аквапарку →</a>
+            <a href={appUrl('/')}>Перезагрузить игру →</a>
           </div>
         )}
       </div>
