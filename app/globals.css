@@ -1078,3 +1078,371 @@ h2 {
   font-size: 12px;
   font-weight: 600;
 }
+
+.pinball-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+  gap: 12px;
+  background: #dceaf2;
+  color: #31546a;
+}
+.pinball-message strong {
+  font-size: 22px;
+}
+.pinball-message p {
+  max-width: 360px;
+  line-height: 1.5;
+  margin: 0;
+}
+.pinball-message a {
+  color: #b5492c;
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+.pinball-result {
+  background: #fffdf5;
+  border-top: 1px solid #d7e3e7;
+  padding: 18px 22px;
+}
+.pinball-result .winner-card {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  column-gap: 16px;
+  align-items: center;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+}
+.pinball-result .winner-card > img {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  width: 56px;
+  height: 64px;
+  margin: 0;
+}
+.pinball-result .winner-kicker {
+  grid-column: 2;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.pinball-result h3 {
+  grid-column: 2;
+  font-size: 25px;
+}
+.pinball-result .winner-card p {
+  display: none;
+}
+.pinball-result .winner-time {
+  grid-column: 2;
+  font-size: 12px;
+}
+.pinball-result .winner-again {
+  grid-column: 3;
+  grid-row: 1 / 4;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .pinball-result .winner-card {
+    grid-template-columns: 44px 1fr;
+    gap: 4px 12px;
+  }
+  .pinball-result .winner-card > img {
+    width: 44px;
+  }
+  .pinball-result .winner-again {
+    grid-column: 1 / 3;
+    grid-row: 4;
+    margin-top: 8px;
+  }
+}
+
+/* Pinball: a compact toy machine with a readable, fixed view of the whole game. */
+.pinball-map-description {
+  margin: 3px 4px 17px;
+  color: #6a7b73;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.pinball-map-description strong {
+  color: #365a52;
+}
+.pinball-game {
+  background: #edf4f3;
+}
+.pinball-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 1px;
+  list-style: none;
+  background: #3a5669;
+}
+.pinball-levels li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  background: #17364b;
+  color: #a9c3cd;
+}
+.pinball-levels li.is-current {
+  background: #235366;
+  color: #f9f1d9;
+  box-shadow: inset 0 -3px #55d5ef;
+}
+.pinball-levels li > b {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: #55d5ef;
+}
+.pinball-levels li > span {
+  font-size: 12px;
+  font-weight: 750;
+}
+.pinball-levels small {
+  display: block;
+  margin-top: 3px;
+  color: #a9c3cd;
+  font-size: 10px;
+  font-weight: 500;
+}
+.pinball-stage {
+  position: relative;
+  height: clamp(560px, 52vw, 740px);
+  overflow: hidden;
+  background: #e8eff0;
+}
+.pinball-canvas {
+  position: absolute;
+  inset: 0;
+}
+.pinball-canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.pinball-hud {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  pointer-events: none;
+  background: #fffdf4eb;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid #d6e0dc;
+  color: #274c56;
+}
+.pinball-hud > span {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 1.25px;
+  color: #6e8a87;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.pinball-hud > strong {
+  font-size: 13px;
+}
+.pinball-stats {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 15px;
+  pointer-events: none;
+  color: #24494f;
+}
+.pinball-stats b {
+  font-size: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.pinball-stats small {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #567674;
+}
+.pinball-camera-hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 13px;
+  border-radius: 9px;
+  background: #fffdf4dd;
+  color: #3f6669;
+  font-size: 10px;
+  max-width: 94%;
+  width: max-content;
+  text-align: center;
+  pointer-events: none;
+}
+.pinball-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid #cfddda;
+}
+.pinball-player {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid #d5e1dd;
+  border-radius: 8px;
+  background: #fbfdf9;
+  color: #365c61;
+  min-width: 0;
+  font-size: 12px;
+}
+.pinball-player > span {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 -2px 2px #0002;
+}
+.pinball-player > b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pinball-player > small {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #617b79;
+}
+.pinball-player.is-winner {
+  background: #fff3c9;
+  border-color: #e3c371;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent']) {
+  background: #122b40;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent']) .pinball-stage {
+  height: clamp(660px, 61vw, 820px);
+  background: #122b40;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent']) .pinball-hud {
+  border-color: #90d4e333;
+  background: #17394ddd;
+  color: #fff1cc;
+  box-shadow: 0 8px 24px #041b3820;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent'])
+  .pinball-hud
+  > span {
+  color: #67d7d4;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent']) .pinball-stats {
+  color: #fff1cc;
+}
+.pinball-game[data-map='descent'] .pinball-stats {
+  padding: 7px 9px;
+  border: 1px solid #90d4e333;
+  border-radius: 9px;
+  background: #122b40ed;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent'])
+  .pinball-stats
+  small {
+  color: #9fc5cf;
+  font-size: 7px;
+  letter-spacing: 0.6px;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent'])
+  .pinball-camera-hint {
+  background: #17394ded;
+  border: 1px solid #96c8d429;
+  color: #cae5e8;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent']) .pinball-roster {
+  border-color: #3a5669;
+  background: #17364b;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent']) .pinball-player {
+  border-color: #496a7a;
+  background: #20455a;
+  color: #eef5ed;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent'])
+  .pinball-player
+  > small {
+  color: #b0c8cf;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent'])
+  .pinball-player.is-winner {
+  background: #ffe5a4;
+  border-color: #ffe5a4;
+  color: #17394d;
+}
+.pinball-game:is([data-map='reactor'], [data-map='descent'])
+  .pinball-player.is-winner
+  > small {
+  color: #805817;
+}
+@media (max-width: 740px) {
+  .pinball-map-description {
+    font-size: 11px;
+  }
+  .pinball-stage {
+    height: 570px;
+  }
+  .pinball-game:is([data-map='reactor'], [data-map='descent']) .pinball-stage {
+    height: 610px;
+  }
+  .pinball-game:is([data-map='reactor'], [data-map='descent']) .pinball-hud {
+    top: 50px;
+  }
+  .pinball-hud {
+    top: 10px;
+    left: 9px;
+    padding: 9px;
+  }
+  .pinball-hud > strong {
+    font-size: 11px;
+  }
+  .pinball-stats {
+    top: 10px;
+    right: 10px;
+    gap: 10px;
+  }
+  .pinball-stats b {
+    font-size: 18px;
+  }
+  .pinball-stats small {
+    font-size: 7px;
+    letter-spacing: 0.5px;
+  }
+  .pinball-camera-hint {
+    font-size: 9px;
+  }
+  .pinball-roster {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 10px;
+    gap: 6px;
+  }
+  .pinball-player {
+    font-size: 11px;
+    padding: 8px;
+  }
+  .pinball-player > small {
+    font-size: 9px;
+  }
+}

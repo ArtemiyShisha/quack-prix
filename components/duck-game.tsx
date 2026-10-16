@@ -16,9 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MarbleTrack } from '@/components/marble-track';
+import { PinballTable } from '@/components/pinball-table';
+import { DEFAULT_PINBALL_MAP, mapInfo } from '@/lib/pinball-maps';
+import { DESCENT_RELEASE_AT, DESCENT_MAX_SECONDS } from '@/lib/pinball-descent';
 import { MARBLE_MAX_SECONDS } from '@/lib/marble-track';
 import { RaceTrack } from '@/components/race-track';
-import { useRace } from '@/hooks/use-race';
+import { useRace, type GameMode } from '@/hooks/use-race';
 import {
   emptyRoster,
   parseRoster,
@@ -31,35 +34,39 @@ import { prepareSound, quack } from '@/lib/sound';
 import { useGameTools } from '@/hooks/use-game-tools';
 import { appUrl } from '@/lib/urls';
 
-export function DuckGame({
-  mode = 'classic',
-}: {
-  mode?: 'classic' | 'marbles';
-}) {
+export function DuckGame({ mode = 'classic' }: { mode?: GameMode }) {
   const is3d = mode === 'marbles';
+  const isPinball = mode === 'pinball';
+  const needsScene = is3d || isPinball;
   const [sceneReady, setSceneReady] = useState(false);
   const [roster, setRoster] = useState<Member[]>(emptyRoster);
   const [loaded, setLoaded] = useState(false);
   const [storageOk, setStorageOk] = useState(true);
   const [error, setError] = useState('');
   const [sound, setSound] = useState(false);
+  const selectedMap = mapInfo(DEFAULT_PINBALL_MAP);
   const [overview, setOverview] = useState(is3d);
-  const race = useRace(mode, !is3d || sceneReady);
+  const race = useRace(mode, !needsScene || sceneReady);
   const { setup, frame, countdown, running, paused } = race;
   const result = frame?.result;
   const winner = result && setup ? setup.members[result.slot] : null;
   const announced = useRef<number | null>(null);
   const count = roster.filter((p) => p.name.trim() && p.active).length;
-  const progress = frame
-    ? Math.min(
-        100,
-        Math.max(
-          0,
-          (Math.max(...frame.ducks.map((d) => d.progress)) / FINISH_DISTANCE) *
-            100,
-        ),
-      )
-    : 0;
+  const progress = isPinball
+    ? result
+      ? 100
+      : 0
+    : frame
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            (Math.max(...frame.ducks.map((d) => d.progress)) /
+              FINISH_DISTANCE) *
+              100,
+          ),
+        )
+      : 0;
   const leader =
     frame && setup
       ? [...frame.ducks].sort((a, b) => b.progress - a.progress)[0]
@@ -102,8 +109,8 @@ export function DuckGame({
         prepareSound();
         quack();
       }
-      if (is3d && !sceneReady)
-        throw new Error('Подожди, пока загрузится 3D-трасса.');
+      if (needsScene && !sceneReady)
+        throw new Error('Подожди, пока загрузится 3D-сцена.');
       return race.start(roster);
     } catch (error) {
       setError(
@@ -128,18 +135,24 @@ export function DuckGame({
     start,
   });
   const status = paused
-    ? is3d && !sceneReady
+    ? needsScene && !sceneReady
       ? 'Загрузка 3D — гонка на паузе'
       : 'Пауза — вкладка неактивна'
     : winner
-      ? 'Финиш! Ведущий найден'
+      ? isPinball
+        ? 'Раунд завершён! Ведущий найден'
+        : 'Финиш! Ведущий найден'
       : countdown
         ? `На старт… ${countdown}`
-        : frame?.flushing
-          ? 'Большой смыв! Утки спешат к выходу'
-          : running
-            ? `${leaderMember?.name ?? 'Утка'} впереди — гонка продолжается`
-            : 'Утки на старте';
+        : isPinball && running
+          ? 'Мультибол! Все участники в игре'
+          : frame?.flushing
+            ? 'Большой смыв! Утки спешат к выходу'
+            : running
+              ? `${leaderMember?.name ?? 'Утка'} впереди — гонка продолжается`
+              : isPinball
+                ? 'Кряк-машина готова — запускай шарики'
+                : 'Утки на старте';
   const elapsed = frame?.elapsed ?? 0;
   return (
     <div className="app-shell">
@@ -150,17 +163,30 @@ export function DuckGame({
             кряк-при<span className="brand-dot">.</span>
           </span>
         </a>
-        <div className="header-caption">Один заезд. Один ведущий.</div>
+        <div className="header-caption">
+          {isPinball
+            ? 'Один раунд. Один ведущий.'
+            : 'Один заезд. Один ведущий.'}
+        </div>
         <span className="edition">
           <span /> DAILY EDITION
         </span>
       </header>
-      <nav className="mode-switch" aria-label="Режим гонки">
-        <a href={appUrl('/')} aria-current={!is3d ? 'page' : undefined}>
+      <nav className="mode-switch" aria-label="Режим игры">
+        <a
+          href={appUrl('/')}
+          aria-current={!is3d && !isPinball ? 'page' : undefined}
+        >
           🦆 Аквапарк
         </a>
         <a href={appUrl('/3d/')} aria-current={is3d ? 'page' : undefined}>
-          🔮 Шарики 3D <span>НОВОЕ</span>
+          🔮 Шарики 3D
+        </a>
+        <a
+          href={appUrl('/pinball/')}
+          aria-current={isPinball ? 'page' : undefined}
+        >
+          ⚡ Пинбол 3D <span>НОВОЕ</span>
         </a>
       </nav>
       <main className="game-layout">
@@ -221,23 +247,50 @@ export function DuckGame({
           <Button
             className="start-button"
             disabled={
-              count === 0 || running || !loaded || (is3d && !sceneReady)
+              count === 0 || running || !loaded || (needsScene && !sceneReady)
             }
             onClick={start}
           >
             {result ? <RotateCcw size={19} /> : <Flag size={19} />}{' '}
             {running
-              ? 'Утки в пути…'
+              ? isPinball
+                ? 'Шарики в игре…'
+                : 'Утки в пути…'
               : result
-                ? 'Ещё один заезд'
-                : 'Выпустить уток'}{' '}
+                ? isPinball
+                  ? 'Ещё один раунд'
+                  : 'Ещё один заезд'
+                : isPinball
+                  ? 'Запустить мультибол'
+                  : 'Выпустить уток'}{' '}
             <ArrowUpRight size={19} />
           </Button>
           <details className="fairness-details">
             <summary>
               <Info size={16} /> Как работает случайность
             </summary>
-            {is3d ? (
+            {isPinball ? (
+              <>
+                <p>
+                  Все шарики начинают из покоя на одной высоте. Общая заслонка
+                  одновременно выпускает их на разгонную площадку трёхэтажной
+                  карты «Глубина». Грибки, роторы и возвратные пружины меняют их
+                  движение при контакте. Первые две лунки ведут на следующий
+                  этаж. Ведущего выбирает первое попадание в третью лунку — в
+                  ядре.
+                </p>
+                <p>
+                  Имена независимо перемешиваются по одинаковым шарикам. Фазы
+                  механизмов каждый раз новые, стартовые условия одинаковы для
+                  всех; физика не получает имён и мест. При одновременном финише
+                  сравниваем моменты пересечения. После {DESCENT_RELEASE_AT}{' '}
+                  секунд пружины отключаются, механизмы останавливаются и
+                  поднимаются, а на {DESCENT_MAX_SECONDS}-й секунде остаётся
+                  явно обозначенный резервный выбор по пройденному этажу и
+                  расстоянию до финиша.
+                </p>
+              </>
+            ) : is3d ? (
               <>
                 <p>
                   Имена независимо распределяются по одинаковым шарикам перед
@@ -274,41 +327,58 @@ export function DuckGame({
           </details>
           {running && (
             <p className="race-hint">
-              Можно болеть за свою.
+              {isPinball
+                ? 'Первые две лунки ведут на следующий этаж.'
+                : 'Можно болеть за свою.'}
               <br />
-              Подталкивать экран бесполезно.
+              {isPinball
+                ? 'Победа — падение в лунку ядра.'
+                : 'Подталкивать экран бесполезно.'}
             </p>
           )}
         </aside>
-        <section className="race-panel" aria-label="Гоночная трасса">
+        <section
+          className="race-panel"
+          aria-label={isPinball ? 'Поле пинбола в 3D' : 'Гоночная трасса'}
+        >
           <div className="race-heading">
             <div>
               <div className="eyebrow">
-                {is3d
-                  ? 'ТРАССА 02 · НАСТОЛЬНЫЙ ХАОС'
-                  : 'ТРАССА 01 · УТИНЫЙ АКВАПАРК'}
+                {isPinball
+                  ? 'ИГРА 03 · МУЛЬТИБОЛ'
+                  : is3d
+                    ? 'ТРАССА 02 · НАСТОЛЬНЫЙ ХАОС'
+                    : 'ТРАССА 01 · УТИНЫЙ АКВАПАРК'}
               </div>
               <h2>
-                {is3d ? 'Кряк на виражах' : 'Большой заплыв'}
-                <span className="track-sticker">{is3d ? '3D' : 'КРЯ!'}</span>
+                {isPinball
+                  ? 'Кряк-машина'
+                  : is3d
+                    ? 'Кряк на виражах'
+                    : 'Большой заплыв'}
+                <span className="track-sticker">
+                  {needsScene ? '3D' : 'КРЯ!'}
+                </span>
               </h2>
             </div>
             <div className="view-controls">
-              <Button
-                variant="ghost"
-                className="overview-button"
-                onClick={() => setOverview((v) => !v)}
-                aria-pressed={overview}
-              >
-                {overview ? <Navigation size={17} /> : <Scan size={17} />}
-                <span>
-                  {overview
-                    ? is3d
-                      ? 'За шариками'
-                      : 'За утками'
-                    : 'Вся трасса'}
-                </span>
-              </Button>
+              {!isPinball && (
+                <Button
+                  variant="ghost"
+                  className="overview-button"
+                  onClick={() => setOverview((v) => !v)}
+                  aria-pressed={overview}
+                >
+                  {overview ? <Navigation size={17} /> : <Scan size={17} />}
+                  <span>
+                    {overview
+                      ? is3d
+                        ? 'За шариками'
+                        : 'За утками'
+                      : 'Вся трасса'}
+                  </span>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 className="sound-button"
@@ -323,6 +393,11 @@ export function DuckGame({
               </Button>
             </div>
           </div>
+          {isPinball && (
+            <p className="pinball-map-description">
+              <strong>{selectedMap.name}.</strong> {selectedMap.description}
+            </p>
+          )}
           <div className="track-shell">
             <div className="track-status">
               <span className={`status-dot ${running ? 'live' : ''}`} />
@@ -335,7 +410,14 @@ export function DuckGame({
             <div className="progress-track" aria-hidden="true">
               <div style={{ width: `${progress}%` }} />
             </div>
-            {is3d ? (
+            {isPinball ? (
+              <PinballTable
+                members={setup?.members ?? roster}
+                frame={frame}
+                onReady={setSceneReady}
+                sound={sound}
+              />
+            ) : is3d ? (
               <MarbleTrack
                 members={setup?.members ?? roster}
                 frame={frame}
@@ -352,11 +434,23 @@ export function DuckGame({
             {countdown && (
               <div className="countdown" aria-hidden="true">
                 <span>{countdown}</span>
-                <p>Приготовились покрякать</p>
+                <p>
+                  {isPinball
+                    ? 'Сейчас будет мультибол'
+                    : 'Приготовились покрякать'}
+                </p>
               </div>
             )}
             {winner && result && (
-              <div className={is3d ? 'marble-result' : 'winner-overlay'}>
+              <div
+                className={
+                  isPinball
+                    ? 'pinball-result'
+                    : is3d
+                      ? 'marble-result'
+                      : 'winner-overlay'
+                }
+              >
                 <div className="winner-card" role="status">
                   <span className="winner-kicker">КРЯ! У НАС ЕСТЬ ВЕДУЩИЙ</span>
                   <img
@@ -369,16 +463,19 @@ export function DuckGame({
                     <Mic size={18} /> Сегодня микрофон твой.
                   </p>
                   <span className="winner-time">
-                    {result.reason === 'finish'
-                      ? `Финиш за ${result.time.toFixed(1)} сек.`
-                      : 'Лимит времени — победа по дистанции'}
+                    {isPinball && result.reason === 'distance'
+                      ? 'Лимит времени — по этажу и близости к лунке'
+                      : result.reason === 'finish'
+                        ? `Финиш за ${result.time.toFixed(1)} сек.`
+                        : 'Лимит времени — победа по дистанции'}
                   </span>
                   <Button
                     className="winner-again"
                     variant="secondary"
                     onClick={start}
                   >
-                    <RotateCcw size={16} /> Ещё один заезд
+                    <RotateCcw size={16} />{' '}
+                    {isPinball ? 'Ещё один раунд' : 'Ещё один заезд'}
                   </Button>
                 </div>
               </div>
@@ -387,14 +484,18 @@ export function DuckGame({
           <div className="race-footer">
             <span>
               <Waves size={17} />{' '}
-              {is3d
-                ? 'Повороты и препятствия — каждый раз по-новому.'
-                : 'Виражи, развилки, качели. Один финиш.'}
+              {isPinball
+                ? selectedMap.tagline
+                : is3d
+                  ? 'Повороты и препятствия — каждый раз по-новому.'
+                  : 'Виражи, развилки, качели. Один финиш.'}
             </span>
             <span>
-              {is3d
-                ? 'Как покатится — так покатится'
-                : 'Около 30 секунд, как поплывёт'}
+              {isPinball
+                ? 'Все в игре до первого финиша'
+                : is3d
+                  ? 'Как покатится — так покатится'
+                  : 'Около 30 секунд, как поплывёт'}
             </span>
           </div>
         </section>

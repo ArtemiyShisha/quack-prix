@@ -2,7 +2,10 @@ import { createRoot } from 'react-dom/client';
 import { DuckGame } from './components/duck-game';
 import './app/globals.css';
 
-const is3d = window.location.pathname.replace(/\/+$/, '').endsWith('/3d');
-createRoot(document.getElementById('root')!).render(
-  <DuckGame mode={is3d ? 'marbles' : 'classic'} />,
-);
+const path = window.location.pathname.replace(/\/+$/, '');
+const mode = path.endsWith('/pinball')
+  ? 'pinball'
+  : path.endsWith('/3d')
+    ? 'marbles'
+    : 'classic';
+createRoot(document.getElementById('root')!).render(<DuckGame mode={mode} />);
