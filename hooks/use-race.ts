@@ -1,14 +1,22 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { STEP_MS, COUNTDOWN_SECONDS } from '@/lib/race';
+import {
+  RaceSimulation,
+  STEP_MS,
+  COUNTDOWN_SECONDS,
+  type Frame,
+} from '@/lib/race';
+import { MarbleSimulation } from '@/lib/marble-race';
 import { initPinballPhysics } from '@/lib/pinball';
-import { PinballArenaSimulation, type ArenaFrame } from '@/lib/pinball-arenas';
+import { PinballArenaSimulation } from '@/lib/pinball-arenas';
 import { freshSeed, shuffled } from '@/lib/random';
+import { MARBLE_PREVIEW_SEED, nextMarbleSeed } from '@/lib/marble-path';
 import { raceMembers, type Member } from '@/lib/roster';
 export type RaceSetup = { members: Member[]; seed: number; sequence: number };
-export function useRace(enabled = true) {
+export type GameMode = 'classic' | 'marbles' | 'pinball';
+export function useRace(mode: GameMode = 'classic', enabled = true) {
   const [setup, setSetup] = useState<RaceSetup | null>(null);
-  const [frame, setFrame] = useState<ArenaFrame | null>(null);
+  const [frame, setFrame] = useState<Frame | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const locked = useRef(false);
@@ -18,19 +26,27 @@ export function useRace(enabled = true) {
     setPaused(document.hidden || !enabled);
   }, [enabled]);
   const sequence = useRef(0);
-  const start = useCallback((roster: Member[]) => {
-    if (locked.current) throw new Error('Раунд уже идёт.');
-    const members = raceMembers(roster);
-    // Separate cryptographic draws: physical conditions are never derived from identity order.
-    const ordered = shuffled(members);
-    const seed = freshSeed();
-    const next = { members: ordered, seed, sequence: ++sequence.current };
-    locked.current = true;
-    setFrame(null);
-    setCountdown(COUNTDOWN_SECONDS);
-    setSetup(next);
-    return { participants: ordered.map((p) => p.name), status: 'countdown' };
-  }, []);
+  const previousMarbleSeed = useRef(MARBLE_PREVIEW_SEED);
+  const start = useCallback(
+    (roster: Member[]) => {
+      if (locked.current) throw new Error('Заезд уже идёт.');
+      const members = raceMembers(roster);
+      // Separate cryptographic draws: physical conditions are never derived from identity order.
+      const ordered = shuffled(members);
+      const seed =
+        mode === 'marbles'
+          ? nextMarbleSeed(previousMarbleSeed.current)
+          : freshSeed();
+      if (mode === 'marbles') previousMarbleSeed.current = seed;
+      const next = { members: ordered, seed, sequence: ++sequence.current };
+      locked.current = true;
+      setFrame(null);
+      setCountdown(COUNTDOWN_SECONDS);
+      setSetup(next);
+      return { participants: ordered.map((p) => p.name), status: 'countdown' };
+    },
+    [mode],
+  );
   const reset = useCallback(() => {
     if (locked.current) return;
     setSetup(null);
@@ -43,10 +59,12 @@ export function useRace(enabled = true) {
     let cleanup: (() => void) | undefined;
     const run = () => {
       if (disposed) return;
-      const simulation = new PinballArenaSimulation(
-        setup.members.length,
-        setup.seed,
-      );
+      const simulation =
+        mode === 'pinball'
+          ? new PinballArenaSimulation(setup.members.length, setup.seed)
+          : mode === 'marbles'
+            ? new MarbleSimulation(setup.members.length, setup.seed)
+            : new RaceSimulation(setup.members.length, setup.seed);
       setFrame(simulation.snapshot());
       let previous = performance.now(),
         accumulator = 0,
@@ -104,20 +122,23 @@ export function useRace(enabled = true) {
         simulation.destroy();
       };
     };
-    // Restored setup or HMR can mount before the scene's readiness callback.
-    void initPinballPhysics()
-      .then(run)
-      .catch(() => {
-        if (disposed) return;
-        locked.current = false;
-        setSetup(null);
-        setCountdown(null);
-      });
+    if (mode === 'pinball') {
+      // Await here as well as in the scene: a restored setup or a development
+      // refresh may mount this effect before the scene's readiness callback.
+      void initPinballPhysics()
+        .then(run)
+        .catch(() => {
+          if (disposed) return;
+          locked.current = false;
+          setSetup(null);
+          setCountdown(null);
+        });
+    } else run();
     return () => {
       disposed = true;
       cleanup?.();
     };
-  }, [setup]);
+  }, [setup, mode]);
   return {
     setup,
     frame,

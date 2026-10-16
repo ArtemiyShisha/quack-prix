@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import type { Frame } from '@/lib/race';
 import { initPinballPhysics } from '@/lib/pinball';
 import type { ArenaFrame } from '@/lib/pinball-arenas';
 import { DEFAULT_PINBALL_MAP, mapInfo } from '@/lib/pinball-maps';
@@ -17,18 +18,22 @@ export function PinballTable({
   sound,
 }: {
   members: Member[];
-  frame: ArenaFrame | null;
+  frame: Frame | null;
   onReady: (ready: boolean) => void;
   sound: boolean;
 }) {
   const mapId = DEFAULT_PINBALL_MAP;
   const host = useRef<HTMLDivElement>(null),
     scene = useRef<ReturnType<typeof createPinballScene> | null>(null);
-  const latest = useRef({ members, frame });
+  const latest = useRef<{ members: Member[]; frame: ArenaFrame | null }>({
+    members,
+    frame: null,
+  });
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>(
     'loading',
   );
-  const pinball = frame?.mapId === mapId ? frame : null;
+  const candidate = frame as ArenaFrame | null;
+  const pinball = candidate?.mapId === mapId ? candidate : null;
   const info = mapInfo(mapId);
   const players = members.filter((m) => m.active && m.name.trim());
   const leadingLevel = Math.max(0, ...(pinball?.stages ?? []));
@@ -164,7 +169,7 @@ export function PinballTable({
               Не удалось загрузить 3D-сцену или физику. Обнови страницу; для
               игры нужен WebGL 2.
             </p>
-            <a href={appUrl('/')}>Перезагрузить игру →</a>
+            <a href={appUrl('/')}>Вернуться к аквапарку →</a>
           </div>
         )}
       </div>

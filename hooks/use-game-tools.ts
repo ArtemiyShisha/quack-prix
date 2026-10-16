@@ -39,7 +39,7 @@ export function useGameTools(state: State) {
         name: 'set_daily_team',
         title: 'Записать команду',
         description:
-          'Replace the local team roster with 1–8 names before a pinball round. Changes the visible form and saves on this browser.',
+          'Replace the local team roster with 1–8 names before a race. Changes the visible form and saves on this browser.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -57,7 +57,7 @@ export function useGameTools(state: State) {
         execute(input) {
           if (!latest.current.loaded || latest.current.running)
             throw new Error(
-              'Wait until the current pinball round finishes and the roster is ready.',
+              'Wait until the current race finishes and the roster is ready.',
             );
           const names = (input as { names?: unknown } | null)?.names;
           if (
@@ -87,9 +87,9 @@ export function useGameTools(state: State) {
       },
       {
         name: 'start_duck_race',
-        title: 'Запустить пинбол',
+        title: 'Начать игру',
         description:
-          'Start a fresh pinball round with the active people in the visible roster. The winner will be announced when the round finishes.',
+          'Start a fresh round in the current game mode with the active people in the visible roster. The winner will be announced when the round finishes.',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -99,7 +99,7 @@ export function useGameTools(state: State) {
         execute() {
           if (!latest.current.loaded || latest.current.running)
             throw new Error(
-              'The team is not ready or a pinball round is already running.',
+              'The team is not ready or a race is already running.',
             );
           raceMembers(latest.current.roster);
           let started: ReturnType<State['start']> = null;
@@ -108,7 +108,7 @@ export function useGameTools(state: State) {
           });
           if (!started)
             throw new Error(
-              'The pinball round could not start. Check the visible team form.',
+              'The race could not start. Check the visible team form.',
             );
           return started;
         },
@@ -117,7 +117,7 @@ export function useGameTools(state: State) {
         name: 'read_duck_race',
         title: 'Узнать результат',
         description:
-          'Read the current pinball status, active names and winner without changing anything.',
+          'Read the current game status, active names and winner without changing anything.',
         inputSchema: {
           type: 'object',
           properties: {},
