@@ -87,9 +87,9 @@ export function useGameTools(state: State) {
       },
       {
         name: 'start_duck_race',
-        title: 'Выпустить уток',
+        title: 'Начать игру',
         description:
-          'Start a fresh physical duck race with the active people in the current visible roster. The winner will be announced when the race finishes.',
+          'Start a fresh round in the current game mode with the active people in the visible roster. The winner will be announced when the round finishes.',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -117,7 +117,7 @@ export function useGameTools(state: State) {
         name: 'read_duck_race',
         title: 'Узнать результат',
         description:
-          'Read the current duck race status, active names and winner without changing anything.',
+          'Read the current game status, active names and winner without changing anything.',
         inputSchema: {
           type: 'object',
           properties: {},

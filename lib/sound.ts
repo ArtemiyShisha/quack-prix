@@ -42,3 +42,37 @@ export function quack() {
     /* A blocked audio context must never block a race. */
   }
 }
+
+let lastPinballSound = -1;
+export function pinballHit(returned = false) {
+  if (
+    !context ||
+    context.state !== 'running' ||
+    context.currentTime - lastPinballSound < 0.075
+  )
+    return;
+  try {
+    const t = context.currentTime;
+    lastPinballSound = t;
+    const oscillator = context.createOscillator(),
+      gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(returned ? 720 : 520, t);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      returned ? 1200 : 190,
+      t + 0.09,
+    );
+    gain.gain.setValueAtTime(0.045, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(t);
+    oscillator.stop(t + 0.13);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gain.disconnect();
+    };
+  } catch {
+    /* Optional sound must never interrupt a round. */
+  }
+}

@@ -33,7 +33,7 @@ export type DuckState = {
 export type Finish = {
   slot: number;
   time: number;
-  reason: 'finish' | 'distance';
+  reason: 'finish' | 'distance' | 'closest' | 'survivor';
 };
 export type Frame = {
   elapsed: number;

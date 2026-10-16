@@ -7,14 +7,16 @@ import {
   type Frame,
 } from '@/lib/race';
 import { MarbleSimulation } from '@/lib/marble-race';
+import { CurlingSimulation } from '@/lib/curling';
+import { initPinballPhysics } from '@/lib/pinball';
+import { PinballArenaSimulation } from '@/lib/pinball-arenas';
+import { IceSimulation } from '@/lib/ice-floe';
 import { freshSeed, shuffled } from '@/lib/random';
 import { MARBLE_PREVIEW_SEED, nextMarbleSeed } from '@/lib/marble-path';
 import { raceMembers, type Member } from '@/lib/roster';
 export type RaceSetup = { members: Member[]; seed: number; sequence: number };
-export function useRace(
-  mode: 'classic' | 'marbles' = 'classic',
-  enabled = true,
-) {
+export type GameMode = 'classic' | 'marbles' | 'curling' | 'ice' | 'pinball';
+export function useRace(mode: GameMode = 'classic', enabled = true) {
   const [setup, setSetup] = useState<RaceSetup | null>(null);
   const [frame, setFrame] = useState<Frame | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -55,65 +57,92 @@ export function useRace(
   }, []);
   useEffect(() => {
     if (!setup) return;
-    const simulation =
-      mode === 'marbles'
-        ? new MarbleSimulation(setup.members.length, setup.seed)
-        : new RaceSimulation(setup.members.length, setup.seed);
-    setFrame(simulation.snapshot());
-    let previous = performance.now(),
-      accumulator = 0,
-      countdownMs = 0,
-      lastRender = 0,
-      request = 0,
-      finished = false;
-    const visibility = () => {
-      previous = performance.now();
-      setPaused(document.hidden || !enabledRef.current);
-    };
-    document.addEventListener('visibilitychange', visibility);
-    const animate = (now: number) => {
-      if (finished) return;
-      const delta = Math.min(now - previous, 120);
-      previous = now;
-      if (document.hidden || !enabledRef.current) {
-        request = requestAnimationFrame(animate);
-        return;
-      }
-      if (countdownMs < COUNTDOWN_SECONDS * 1000) {
-        countdownMs += delta;
-        setCountdown(
-          Math.max(
-            1,
-            Math.ceil((COUNTDOWN_SECONDS * 1000 - countdownMs) / 1000),
-          ),
-        );
-      } else {
-        setCountdown(null);
-        accumulator += delta;
-        let current = simulation.snapshot();
-        while (accumulator >= STEP_MS && !current.result) {
-          current = simulation.step();
-          accumulator -= STEP_MS;
-        }
-        if (now - lastRender >= 30 || current.result) {
-          setFrame(current);
-          lastRender = now;
-        }
-        if (current.result) {
-          locked.current = false;
-          finished = true;
-          setPaused(false);
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+    const run = () => {
+      if (disposed) return;
+      const simulation =
+        mode === 'pinball'
+          ? new PinballArenaSimulation(setup.members.length, setup.seed)
+          : mode === 'marbles'
+            ? new MarbleSimulation(setup.members.length, setup.seed)
+            : mode === 'curling'
+              ? new CurlingSimulation(setup.members.length, setup.seed)
+              : mode === 'ice'
+                ? new IceSimulation(setup.members.length, setup.seed)
+                : new RaceSimulation(setup.members.length, setup.seed);
+      setFrame(simulation.snapshot());
+      let previous = performance.now(),
+        accumulator = 0,
+        countdownMs = 0,
+        lastRender = 0,
+        request = 0,
+        finished = false;
+      const visibility = () => {
+        previous = performance.now();
+        setPaused(document.hidden || !enabledRef.current);
+      };
+      document.addEventListener('visibilitychange', visibility);
+      const animate = (now: number) => {
+        if (finished) return;
+        const delta = Math.min(now - previous, 120);
+        previous = now;
+        if (document.hidden || !enabledRef.current) {
+          request = requestAnimationFrame(animate);
           return;
         }
-      }
+        if (countdownMs < COUNTDOWN_SECONDS * 1000) {
+          countdownMs += delta;
+          setCountdown(
+            Math.max(
+              1,
+              Math.ceil((COUNTDOWN_SECONDS * 1000 - countdownMs) / 1000),
+            ),
+          );
+        } else {
+          setCountdown(null);
+          accumulator += delta;
+          let current = simulation.snapshot();
+          while (accumulator >= STEP_MS && !current.result) {
+            current = simulation.step();
+            accumulator -= STEP_MS;
+          }
+          if (now - lastRender >= 30 || current.result) {
+            setFrame(current);
+            lastRender = now;
+          }
+          if (current.result) {
+            locked.current = false;
+            finished = true;
+            setPaused(false);
+            return;
+          }
+        }
+        request = requestAnimationFrame(animate);
+      };
       request = requestAnimationFrame(animate);
+      cleanup = () => {
+        finished = true;
+        cancelAnimationFrame(request);
+        document.removeEventListener('visibilitychange', visibility);
+        simulation.destroy();
+      };
     };
-    request = requestAnimationFrame(animate);
+    if (mode === 'pinball') {
+      // Await here as well as in the scene: a restored setup or a development
+      // refresh may mount this effect before the scene's readiness callback.
+      void initPinballPhysics()
+        .then(run)
+        .catch(() => {
+          if (disposed) return;
+          locked.current = false;
+          setSetup(null);
+          setCountdown(null);
+        });
+    } else run();
     return () => {
-      finished = true;
-      cancelAnimationFrame(request);
-      document.removeEventListener('visibilitychange', visibility);
-      simulation.destroy();
+      disposed = true;
+      cleanup?.();
     };
   }, [setup, mode]);
   return {
